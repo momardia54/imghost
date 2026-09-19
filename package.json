@@ -21,5 +21,15 @@
   "dependencies": {
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
+  },
+  "cloudflare": {
+    "bindings": {
+      "ADMIN_USERNAME": {
+        "description": "The only login username for this instance. Pick anything."
+      },
+      "ADMIN_PASSWORD": {
+        "description": "The only login password for this instance. Min 8 characters recommended."
+      }
+    }
   }
 }
