@@ -379,24 +379,53 @@ label {
   box-shadow: 0 0 0 1.5px var(--accent) inset;
 }
 
-.folder-row .caret {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--foreground-subtle);
-}
-.folder-row .caret.leaf {
-  visibility: hidden;
-}
-
 .folder-row .folder-label {
-  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.folder-row .row-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--foreground-subtle);
+}
+.folder-row.active .row-icon {
+  color: var(--accent);
+}
+.folder-row .folder-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.folder-row .folder-path {
+  color: var(--foreground-subtle);
+  font-size: 11px;
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.folder-row .drill {
+  flex-shrink: 0;
+  color: var(--foreground-subtle);
+}
+.folder-row.back {
+  color: var(--foreground-subtle);
+  margin-top: 6px;
+}
+.folder-row.current {
+  color: var(--foreground);
+  font-weight: 600;
+  background: var(--surface);
+  margin-bottom: 4px;
+}
+.folder-children {
+  margin-left: 14px;
+  padding-left: 6px;
+  border-left: 1px solid var(--border);
 }
 
 .folder-row .folder-count {
@@ -425,14 +454,6 @@ label {
   border-radius: 6px;
 }
 
-/* Indent stops growing at depth 6 so deeply nested labels always keep room; full names show on hover. */
-.folder-row.depth-0 { padding-left: 8px; }
-.folder-row.depth-1 { padding-left: 20px; }
-.folder-row.depth-2 { padding-left: 32px; }
-.folder-row.depth-3 { padding-left: 44px; }
-.folder-row.depth-4 { padding-left: 56px; }
-.folder-row.depth-5 { padding-left: 68px; }
-.folder-row.depth-6 { padding-left: 80px; }
 
 /* Main content */
 .main {
@@ -629,6 +650,10 @@ progress::-moz-progress-bar {
   cursor: pointer;
   text-align: left;
   transition: border-color 180ms var(--ease), transform 180ms var(--ease);
+}
+.subfolder-card.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-surface);
 }
 .subfolder-card:hover {
   border-color: var(--border-hover);

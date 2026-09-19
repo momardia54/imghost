@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FileItem, FolderNode, UnauthorizedError, deleteFile, listFiles } from "../api";
+import { FileItem, FolderNode, UnauthorizedError, deleteFile, listFiles, moveFile } from "../api";
 import { Selection } from "./FolderTree";
 import { confirmModal } from "./Modal";
 import { CheckIcon, ChevronLeftSmallIcon, ChevronRightSmallIcon, FolderIcon, ImageOffIcon, LinkIcon, TrashIcon } from "../icons";
@@ -29,6 +29,7 @@ export default function Gallery({
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState<number | null>(null);
 
   const selectionKey = query ? `search-${query}` : selection.type === "all" ? "all" : `folder-${selection.id}`;
 
@@ -92,6 +93,15 @@ export default function Gallery({
     setTimeout(() => setCopiedId((cur) => (cur === file.id ? null : cur)), 1500);
   }
 
+  async function handleDropOnFolder(e: React.DragEvent, folderId: number) {
+    e.preventDefault();
+    setDragOverFolderId(null);
+    const fileId = Number(e.dataTransfer.getData("text/x-imghost-file-id"));
+    if (!fileId) return;
+    await moveFile(fileId, folderId);
+    onChanged();
+  }
+
   async function handleDelete(file: FileItem) {
     const ok = await confirmModal(`Delete "${file.original_name}"?`);
     if (!ok) return;
@@ -109,8 +119,14 @@ export default function Gallery({
         const path = query ? parentPath(f) : "";
         return (
           <button
-            className="subfolder-card"
+            className={"subfolder-card" + (dragOverFolderId === f.id ? " drag-over" : "")}
             key={f.id}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOverFolderId(f.id);
+            }}
+            onDragLeave={() => setDragOverFolderId((cur) => (cur === f.id ? null : cur))}
+            onDrop={(e) => handleDropOnFolder(e, f.id)}
             title={path ? `${path} / ${f.name}` : f.name}
             onClick={() => onSelect({ type: "folder", id: f.id })}
           >
