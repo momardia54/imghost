@@ -17,10 +17,7 @@ upload, and a direct copyable link per image.
 
 ## Deploy
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/YOUR_GITHUB_USERNAME/imghost)
-
-> Replace `YOUR_GITHUB_USERNAME` above once you've pushed this repo to your own GitHub account —
-> the button URL points at wherever the repo actually lives.
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/momardia54/imghost)
 
 The button walks you through connecting your Cloudflare account and provisions the Worker, D1
 database, and R2 bucket for you. After it finishes, open your new Worker's URL — the first visit
