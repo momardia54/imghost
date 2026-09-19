@@ -105,16 +105,29 @@ export async function handleListFiles(req: Request, db: D1Database): Promise<Res
   );
   const offset = (page - 1) * pageSize;
 
-  const whereClause = scope === "all" ? "" : folderId === null ? "WHERE folder_id IS NULL" : "WHERE folder_id = ?";
-  const bindArgs = scope === "all" || folderId === null ? [] : [folderId];
+  // A folder listing is recursive: it includes files in every descendant folder too.
+  const recursive = scope !== "all" && folderId !== null;
+  const cte = recursive
+    ? `WITH RECURSIVE descendants(id) AS (
+         SELECT id FROM folders WHERE id = ?
+         UNION ALL
+         SELECT f.id FROM folders f JOIN descendants d ON f.parent_id = d.id
+       )`
+    : "";
+  const whereClause = recursive
+    ? "WHERE folder_id IN (SELECT id FROM descendants)"
+    : scope === "all"
+      ? ""
+      : "WHERE folder_id IS NULL";
+  const bindArgs = recursive ? [folderId] : [];
 
   const countRow = await db
-    .prepare(`SELECT COUNT(*) as total FROM files ${whereClause}`)
+    .prepare(`${cte} SELECT COUNT(*) as total FROM files ${whereClause}`)
     .bind(...bindArgs)
     .first<{ total: number }>();
 
   const { results } = await db
-    .prepare(`SELECT * FROM files ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+    .prepare(`${cte} SELECT * FROM files ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
     .bind(...bindArgs, pageSize, offset)
     .all<FileRow>();
 

@@ -125,6 +125,7 @@ export default function App() {
           folders={folders}
           refreshKey={refreshKey}
           onChanged={handleChanged}
+          onSelect={setSelection}
           onUnauthorized={handleUnauthorized}
         />
       </main>

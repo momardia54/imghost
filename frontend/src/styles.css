@@ -568,6 +568,45 @@ progress::-moz-progress-bar {
   gap: 18px;
 }
 
+.subfolder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.subfolder-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 180ms var(--ease), transform 180ms var(--ease);
+}
+.subfolder-card:hover {
+  border-color: var(--border-hover);
+  transform: translateY(-1px);
+}
+.subfolder-card svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+.subfolder-card .name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .image-card {
   background: var(--bg-elevated);
   border: 1px solid var(--border);

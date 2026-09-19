@@ -32,7 +32,17 @@ export async function handleTree(db: D1Database): Promise<Response> {
   ]);
 
   const countByFolder = new Map((counts ?? []).map((c) => [c.folder_id, c.count]));
-  const foldersWithCounts = (folders ?? []).map((f) => ({ ...f, count: countByFolder.get(f.id) ?? 0 }));
+  // Counts are recursive (a folder includes everything in its descendants), matching the gallery.
+  const childrenOf = new Map<number, number[]>();
+  for (const f of folders ?? []) {
+    if (f.parent_id !== null) childrenOf.set(f.parent_id, [...(childrenOf.get(f.parent_id) ?? []), f.id]);
+  }
+  const subtreeCount = (id: number, seen = new Set<number>()): number => {
+    if (seen.has(id)) return 0;
+    seen.add(id);
+    return (countByFolder.get(id) ?? 0) + (childrenOf.get(id) ?? []).reduce((n, c) => n + subtreeCount(c, seen), 0);
+  };
+  const foldersWithCounts = (folders ?? []).map((f) => ({ ...f, count: subtreeCount(f.id) }));
 
   return json({ folders: foldersWithCounts, total: totalRow?.total ?? 0 });
 }
