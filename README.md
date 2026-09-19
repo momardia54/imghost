@@ -1,6 +1,6 @@
 # imghost
 
-A tiny, self-hosted alternative to [images.host](https://images.host), built to run entirely on
+A tiny, self-hosted alternative to [freeimage.host](https://freeimage.host), built to run entirely on
 Cloudflare's free tier — **Workers**, **D1**, and **R2**. Single account, folder tree, drag & drop
 upload, and a direct copyable link per image.
 
