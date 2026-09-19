@@ -7,8 +7,7 @@
     "build": "vite build",
     "dev": "npm run build && wrangler dev",
     "dev:frontend": "vite dev",
-    "deploy": "npm run build && wrangler deploy",
-    "reset-password": "node scripts/reset-password.mjs"
+    "deploy": "npm run build && wrangler deploy"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260918.1",

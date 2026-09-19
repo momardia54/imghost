@@ -66,6 +66,19 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
+// Returns the value as a folder id (number or null for root), or `undefined` if it's some other
+// JSON shape (object, array, boolean, NaN, ...) — callers should treat `undefined` as a 400,
+// rather than letting it reach a D1 `.bind()` call and crash with an unhandled D1_TYPE_ERROR.
+function parseFolderId(value: unknown): number | null | undefined {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : undefined;
+  if (typeof value === "string" && value.length > 0) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : undefined;
+  }
+  return undefined;
+}
+
 type FileRow = {
   id: number;
   folder_id: number | null;
@@ -122,8 +135,10 @@ export async function handleUpload(
   if (!(file instanceof File)) return json({ error: "No file provided" }, 400);
 
   const folderIdRaw = form.get("folder_id");
-  const folderId =
-    typeof folderIdRaw === "string" && folderIdRaw.length > 0 ? Number(folderIdRaw) : null;
+  const folderId = parseFolderId(typeof folderIdRaw === "string" ? folderIdRaw : null);
+  if (folderId === undefined) {
+    return json({ error: "Invalid folder_id" }, 400);
+  }
 
   if (folderId !== null) {
     const parent = await db.prepare("SELECT id FROM folders WHERE id = ?").bind(folderId).first();
@@ -149,13 +164,21 @@ export async function handleUpload(
 
   await bucket.put(key, bytes, { httpMetadata: { contentType: sniffedType } });
 
-  const inserted = await db
-    .prepare(
-      `INSERT INTO files (folder_id, r2_key, original_name, content_type, size)
-       VALUES (?, ?, ?, ?, ?) RETURNING id, created_at`
-    )
-    .bind(folderId, key, safeName, sniffedType, bytes.byteLength)
-    .first<{ id: number; created_at: string }>();
+  let inserted: { id: number; created_at: string } | null;
+  try {
+    inserted = await db
+      .prepare(
+        `INSERT INTO files (folder_id, r2_key, original_name, content_type, size)
+         VALUES (?, ?, ?, ?, ?) RETURNING id, created_at`
+      )
+      .bind(folderId, key, safeName, sniffedType, bytes.byteLength)
+      .first<{ id: number; created_at: string }>();
+  } catch {
+    // The R2 object was already written — clean it up rather than leaving an orphan with no
+    // DB row pointing to it (it would otherwise be permanently invisible to the app).
+    await bucket.delete(key).catch(() => {});
+    return json({ error: "Upload failed, please try again" }, 500);
+  }
 
   return json(
     {
@@ -176,11 +199,14 @@ export async function handleMoveFile(fileId: number, req: Request, db: D1Databas
   const existing = await db.prepare("SELECT id FROM files WHERE id = ?").bind(fileId).first();
   if (!existing) return json({ error: "File not found" }, 404);
 
-  const body = await req.json<{ folder_id?: number | null }>().catch(() => null);
+  const body = await req.json<{ folder_id?: unknown }>().catch(() => null);
   if (!body || !("folder_id" in body)) {
     return json({ error: "folder_id required" }, 400);
   }
-  const folderId = body.folder_id;
+  const folderId = parseFolderId(body.folder_id);
+  if (folderId === undefined) {
+    return json({ error: "Invalid folder_id" }, 400);
+  }
 
   if (folderId !== null) {
     const parent = await db.prepare("SELECT id FROM folders WHERE id = ?").bind(folderId).first();
@@ -198,8 +224,12 @@ export async function handleDeleteFile(fileId: number, db: D1Database, bucket: R
     .first<{ r2_key: string }>();
   if (!row) return json({ error: "File not found" }, 404);
 
-  await bucket.delete(row.r2_key);
+  // D1 delete first, R2 delete after: if the D1 step fails, nothing changed (safe to retry). If
+  // the R2 step fails after D1 succeeded, the row is already gone from every listing — the worst
+  // case is an invisible, harmless leftover R2 object, not a broken (404) image left in the
+  // gallery.
   await db.prepare("DELETE FROM files WHERE id = ?").bind(fileId).run();
+  await bucket.delete(row.r2_key);
 
   return json({ ok: true });
 }

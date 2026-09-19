@@ -24,7 +24,7 @@ export async function handleListApiKeys(db: D1Database): Promise<Response> {
 
 export async function handleCreateApiKey(req: Request, db: D1Database): Promise<Response> {
   const body = await req.json<{ name?: string }>().catch(() => null);
-  const name = body?.name?.trim();
+  const name = body?.name?.trim().slice(0, 100);
   if (!name) return json({ error: "Key name required" }, 400);
 
   const { token, hash, prefix } = await generateApiKey();

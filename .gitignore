@@ -4,3 +4,4 @@ frontend-dist/
 *.log
 .DS_Store
 CLAUDE.md
+.dev.vars

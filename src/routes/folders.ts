@@ -5,6 +5,20 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
+// Same shape as the helper in routes/files.ts: `undefined` means "not a valid folder id",
+// callers should 400 rather than let it reach a D1 `.bind()` call.
+function parseFolderId(value: unknown): number | null | undefined {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : undefined;
+  if (typeof value === "string" && value.length > 0) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : undefined;
+  }
+  return undefined;
+}
+
+const MAX_NAME_LENGTH = 100;
+
 type FolderRow = { id: number; parent_id: number | null; name: string };
 
 export async function handleTree(db: D1Database): Promise<Response> {
@@ -24,11 +38,14 @@ export async function handleTree(db: D1Database): Promise<Response> {
 }
 
 export async function handleCreateFolder(req: Request, db: D1Database): Promise<Response> {
-  const body = await req.json<{ name?: string; parent_id?: number | null }>().catch(() => null);
-  const name = body?.name?.trim();
+  const body = await req.json<{ name?: string; parent_id?: unknown }>().catch(() => null);
+  const name = body?.name?.trim().slice(0, MAX_NAME_LENGTH);
   if (!name) return json({ error: "Folder name required" }, 400);
 
-  const parentId = body?.parent_id ?? null;
+  const parentId = parseFolderId(body?.parent_id);
+  if (parentId === undefined) {
+    return json({ error: "Invalid parent_id" }, 400);
+  }
   if (parentId !== null) {
     const parent = await db.prepare("SELECT id FROM folders WHERE id = ?").bind(parentId).first();
     if (!parent) return json({ error: "Parent folder not found" }, 404);
@@ -47,7 +64,7 @@ export async function handleRenameFolder(folderId: number, req: Request, db: D1D
   if (!existing) return json({ error: "Folder not found" }, 404);
 
   const body = await req.json<{ name?: string }>().catch(() => null);
-  const name = body?.name?.trim();
+  const name = body?.name?.trim().slice(0, MAX_NAME_LENGTH);
   if (!name) return json({ error: "Folder name required" }, 400);
 
   await db.prepare("UPDATE folders SET name = ? WHERE id = ?").bind(name, folderId).run();
@@ -84,14 +101,17 @@ export async function handleDeleteFolder(
     .prepare(`SELECT r2_key FROM files WHERE folder_id IN (${placeholders})`)
     .bind(...ids)
     .all<{ r2_key: string }>();
-
   const keys = (fileRows ?? []).map((r) => r.r2_key);
+
+  // D1 delete first, R2 delete after (same reasoning as handleDeleteFile): if the D1 step fails,
+  // nothing changed yet. ON DELETE CASCADE on folders/files handles descendants once the root
+  // folder is removed. If an R2 batch delete then fails, the rows are already gone from every
+  // listing — worst case is a harmless, invisible leftover R2 object, not a broken image link.
+  await db.prepare("DELETE FROM folders WHERE id = ?").bind(folderId).run();
+
   for (let i = 0; i < keys.length; i += 1000) {
     await bucket.delete(keys.slice(i, i + 1000));
   }
-
-  // ON DELETE CASCADE on folders/files handles the rest once the root folder is removed.
-  await db.prepare("DELETE FROM folders WHERE id = ?").bind(folderId).run();
 
   return json({ ok: true });
 }

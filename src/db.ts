@@ -1,11 +1,8 @@
 const SCHEMA_STATEMENTS = [
-  `CREATE TABLE IF NOT EXISTS account (
-    id INTEGER PRIMARY KEY,
-    username TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    salt TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  )`,
+  // Admin credentials now live in ADMIN_USERNAME/ADMIN_PASSWORD Workers secrets, not D1 — drop
+  // the old account table (and its now-orphaned password hash) rather than leaving it lying
+  // around unused.
+  `DROP TABLE IF EXISTS account`,
   `CREATE TABLE IF NOT EXISTS sessions (
     token TEXT PRIMARY KEY,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),

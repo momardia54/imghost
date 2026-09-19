@@ -1,6 +1,6 @@
 import { ensureSchema } from "./db";
 import { getApiKeyFromRequest, getSessionFromRequest } from "./auth";
-import { handleSetup, handleLogin, handleLogout, handleMe } from "./routes/auth";
+import { handleLogin, handleLogout, handleMe } from "./routes/auth";
 import { handleTree, handleCreateFolder, handleDeleteFolder, handleRenameFolder } from "./routes/folders";
 import { handleListFiles, handleUpload, handleDeleteFile, handleMoveFile } from "./routes/files";
 import { handleServeImage } from "./routes/serve";
@@ -11,6 +11,8 @@ export interface Env {
   DB: D1Database;
   IMAGES: R2Bucket;
   ASSETS: Fetcher;
+  ADMIN_USERNAME?: string;
+  ADMIN_PASSWORD?: string;
 }
 
 function json(data: unknown, status = 200): Response {
@@ -33,18 +35,15 @@ async function handle(req: Request, env: Env): Promise<Response> {
       return handleServeImage(key, env.IMAGES);
     }
 
-    // Auth/setup endpoints.
-    if (pathname === "/api/setup") {
-      return handleSetup(req, env.DB);
-    }
+    // Auth endpoints.
     if (pathname === "/api/login" && req.method === "POST") {
-      return handleLogin(req, env.DB);
+      return handleLogin(req, env.DB, env);
     }
     if (pathname === "/api/logout" && req.method === "POST") {
       return handleLogout(req, env.DB);
     }
     if (pathname === "/api/me" && req.method === "GET") {
-      return handleMe(req, env.DB);
+      return handleMe(req, env.DB, env);
     }
 
     // Upload accepts either a browser session OR an API key (Authorization: Bearer <token>) —

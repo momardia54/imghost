@@ -1,12 +1,16 @@
 import {
   createSession,
   destroySessionFromRequest,
-  hashPassword,
-  verifyPassword,
+  verifyAdminCredentials,
   sessionCookieHeader,
   clearSessionCookieHeader,
   getSessionFromRequest,
 } from "../auth";
+
+interface AuthEnv {
+  ADMIN_USERNAME?: string;
+  ADMIN_PASSWORD?: string;
+}
 
 function json(data: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(data), {
@@ -41,35 +45,11 @@ async function clearAttempts(db: D1Database, ip: string): Promise<void> {
   await db.prepare("DELETE FROM login_attempts WHERE ip = ?").bind(ip).run();
 }
 
-export async function handleSetup(req: Request, db: D1Database): Promise<Response> {
-  const existing = await db.prepare("SELECT id FROM account LIMIT 1").first();
-
-  if (req.method === "GET") {
-    return json({ setupRequired: !existing });
+export async function handleLogin(req: Request, db: D1Database, env: AuthEnv): Promise<Response> {
+  if (!env.ADMIN_USERNAME || !env.ADMIN_PASSWORD) {
+    return json({ error: "Admin credentials not configured on this deployment" }, 503);
   }
 
-  if (existing) {
-    return json({ error: "Account already exists" }, 409);
-  }
-
-  const body = await req.json<{ username?: string; password?: string }>().catch(() => null);
-  const username = body?.username?.trim();
-  const password = body?.password;
-  if (!username || !password || password.length < 8) {
-    return json({ error: "Username required, password must be at least 8 characters" }, 400);
-  }
-
-  const { hash, salt } = await hashPassword(password);
-  await db
-    .prepare("INSERT INTO account (username, password_hash, salt) VALUES (?, ?, ?)")
-    .bind(username, hash, salt)
-    .run();
-
-  const token = await createSession(db);
-  return json({ ok: true }, 200, { "Set-Cookie": sessionCookieHeader(token) });
-}
-
-export async function handleLogin(req: Request, db: D1Database): Promise<Response> {
   const ip = clientIp(req);
   if (await isRateLimited(db, ip)) {
     return json({ error: "Too many attempts. Try again later." }, 429);
@@ -80,12 +60,8 @@ export async function handleLogin(req: Request, db: D1Database): Promise<Respons
     return json({ error: "Username and password required" }, 400);
   }
 
-  const account = await db
-    .prepare("SELECT username, password_hash, salt FROM account WHERE username = ?")
-    .bind(body.username)
-    .first<{ username: string; password_hash: string; salt: string }>();
-
-  if (!account || !(await verifyPassword(body.password, account.password_hash, account.salt))) {
+  const valid = await verifyAdminCredentials(body.username, body.password, env.ADMIN_USERNAME, env.ADMIN_PASSWORD);
+  if (!valid) {
     await recordFailedAttempt(db, ip);
     return json({ error: "Invalid credentials" }, 401);
   }
@@ -100,8 +76,8 @@ export async function handleLogout(req: Request, db: D1Database): Promise<Respon
   return json({ ok: true }, 200, { "Set-Cookie": clearSessionCookieHeader() });
 }
 
-export async function handleMe(req: Request, db: D1Database): Promise<Response> {
+export async function handleMe(req: Request, db: D1Database, env: AuthEnv): Promise<Response> {
   const authed = await getSessionFromRequest(req, db);
-  const hasAccount = !!(await db.prepare("SELECT id FROM account LIMIT 1").first());
-  return json({ authenticated: authed, setupRequired: !hasAccount });
+  const configured = !!env.ADMIN_USERNAME && !!env.ADMIN_PASSWORD;
+  return json({ authenticated: authed, configured });
 }

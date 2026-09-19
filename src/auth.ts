@@ -1,48 +1,33 @@
 const SESSION_COOKIE = "imghost_session";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-// Workers' free plan caps CPU time at 10ms/request. 100k PBKDF2-SHA256 iterations
-// (~OWASP's floor) leaves headroom; raising this risks login requests being killed
-// for exceeding the CPU limit unless you're on a paid Workers plan.
-const PBKDF2_ITERATIONS = 100_000;
 
 function toHex(buf: ArrayBufferLike): string {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function fromHex(hex: string): Uint8Array {
-  const out = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
-  return out;
-}
-
-async function pbkdf2(password: string, salt: Uint8Array): Promise<ArrayBuffer> {
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(password),
-    "PBKDF2",
-    false,
-    ["deriveBits"]
-  );
-  return crypto.subtle.deriveBits(
-    { name: "PBKDF2", salt, iterations: PBKDF2_ITERATIONS, hash: "SHA-256" },
-    keyMaterial,
-    256
-  );
-}
-
-export async function hashPassword(password: string): Promise<{ hash: string; salt: string }> {
-  const saltBytes = crypto.getRandomValues(new Uint8Array(16));
-  const derived = await pbkdf2(password, saltBytes);
-  return { hash: toHex(derived), salt: toHex(saltBytes.buffer) };
-}
-
-export async function verifyPassword(password: string, hash: string, salt: string): Promise<boolean> {
-  const derived = await pbkdf2(password, fromHex(salt));
-  const derivedHex = toHex(derived);
-  if (derivedHex.length !== hash.length) return false;
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
   let diff = 0;
-  for (let i = 0; i < hash.length; i++) diff |= derivedHex.charCodeAt(i) ^ hash.charCodeAt(i);
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
+}
+
+// Admin credentials live in Workers secrets (ADMIN_USERNAME/ADMIN_PASSWORD), not D1 — nothing to
+// protect from a database dump, so there's no need for PBKDF2's deliberate slowness here (that
+// mattered when a password hash was persisted; it isn't anymore). Username and password are
+// folded into a single hash-and-compare specifically so there's no separate "does the username
+// match" branch to short-circuit on — a naive `username === expected && password === expected`
+// (or a DB lookup that skips password verification on an unknown username) leaks which part
+// failed via response timing. One combined comparison, always full cost, nothing to time.
+export async function verifyAdminCredentials(
+  username: string,
+  password: string,
+  expectedUsername: string,
+  expectedPassword: string
+): Promise<boolean> {
+  const presented = await sha256Hex(`${username}\0${password}`);
+  const expected = await sha256Hex(`${expectedUsername}\0${expectedPassword}`);
+  return constantTimeEqual(presented, expected);
 }
 
 export function newSessionToken(): string {

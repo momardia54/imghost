@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { FolderNode, getMe, getTree, logout } from "./api";
-import SetupForm from "./components/SetupForm";
 import LoginForm from "./components/LoginForm";
 import FolderTree, { Selection } from "./components/FolderTree";
 import Breadcrumb from "./components/Breadcrumb";
@@ -10,7 +9,7 @@ import ModalHost from "./components/Modal";
 import ApiKeysPanel from "./components/ApiKeysPanel";
 import { KeyIcon, LogOutIcon } from "./icons";
 
-type View = "loading" | "setup" | "login" | "app";
+type View = "loading" | "not-configured" | "login" | "app";
 
 export default function App() {
   const [view, setView] = useState<View>("loading");
@@ -23,7 +22,7 @@ export default function App() {
   const checkAuth = useCallback(() => {
     getMe()
       .then((res) => {
-        if (res.setupRequired) setView("setup");
+        if (!res.configured) setView("not-configured");
         else if (!res.authenticated) setView("login");
         else setView("app");
       })
@@ -60,12 +59,21 @@ export default function App() {
 
   if (view === "loading") return null;
 
-  if (view === "setup") {
+  if (view === "not-configured") {
     return (
-      <>
-        <SetupForm onDone={() => setView("app")} />
-        <ModalHost />
-      </>
+      <div className="center-screen">
+        <div className="auth-card">
+          <div className="brand-mark" />
+          <h1>Not configured yet</h1>
+          <p className="sub">
+            This imghost instance doesn't have admin credentials set. Whoever deployed it needs to run:
+          </p>
+          <pre className="config-snippet">
+            npx wrangler secret put ADMIN_USERNAME{"\n"}npx wrangler secret put ADMIN_PASSWORD
+          </pre>
+          <p className="sub">Reload this page once that's done.</p>
+        </div>
+      </div>
     );
   }
 

@@ -6,8 +6,10 @@ upload, and a direct copyable link per image.
 
 ## Features
 
-- **Single-account**: the first visit prompts you to create the one admin account; every visit
-  after that is a login.
+- **Single-account, no public registration**: the admin username/password are set as Cloudflare
+  Workers secrets (`ADMIN_USERNAME`/`ADMIN_PASSWORD`), not created through the app itself — there's
+  no sign-up endpoint at all, so there's nothing for a bot to race you to on a freshly deployed,
+  not-yet-configured instance.
 - **Folders**: nested folders with expand/collapse, inline rename, and drag-and-drop to move an
   image into a folder.
 - **Upload**: drag & drop or pick multiple files at once, uploaded in parallel with a per-file
@@ -24,8 +26,10 @@ upload, and a direct copyable link per image.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/momardia54/imghost)
 
-The button walks you through connecting your Cloudflare account and provisions the Worker, D1
-database, and R2 bucket for you.
+The button walks you through connecting your Cloudflare account, provisions the Worker, D1
+database, and R2 bucket for you, **and prompts you right there in the dashboard for the two admin
+credential values** (`ADMIN_USERNAME`/`ADMIN_PASSWORD`, declared in `.dev.vars.example` and
+`wrangler.jsonc`'s `secrets.required`) — no separate post-deploy step needed when using the button.
 
 **Known gotcha:** `wrangler.jsonc` in this repo has a `d1_databases[0].database_id` baked in — it
 has to, so that *this* repo's own Git-connected auto-deploy keeps working — but that ID belongs to
@@ -39,7 +43,7 @@ npx wrangler d1 list          # find the database it just created for you (e.g. 
 
 Copy that database's `uuid`, paste it into your fork's `wrangler.jsonc` in place of the existing
 `database_id`, commit, and push — the next auto-deploy will succeed. After that, open your Worker's
-URL and the first visit will prompt you to create the admin account.
+URL and log in with the credentials you gave the button.
 
 ### Manual deploy
 
@@ -66,11 +70,21 @@ Take the `database_id` printed by `wrangler d1 create` and paste it into `wrangl
 ]
 ```
 
+Set the admin credentials (each prompts interactively — nothing to type on the command line):
+
+```bash
+npx wrangler secret put ADMIN_USERNAME
+npx wrangler secret put ADMIN_PASSWORD
+```
+
 Then deploy:
 
 ```bash
 npx wrangler deploy
 ```
+
+`wrangler deploy` will refuse to run (with a clear error) if either secret isn't set yet, rather
+than shipping a Worker that's silently inaccessible.
 
 If your Cloudflare login has access to more than one account, either pass
 `--account-id <id>` to the commands above, or export it once:
@@ -79,23 +93,29 @@ If your Cloudflare login has access to more than one account, either pass
 export CLOUDFLARE_ACCOUNT_ID=your-account-id
 ```
 
-Open the Worker's `*.workers.dev` URL (or your custom domain, if you've attached one) and create
-the admin account on first visit.
+Open the Worker's `*.workers.dev` URL (or your custom domain, if you've attached one) and log in.
 
 ## Local development
 
 ```bash
+cp .dev.vars.example .dev.vars   # fill in ADMIN_USERNAME/ADMIN_PASSWORD for local login
 npm install
 npm run dev
 ```
 
 This runs the Worker locally with wrangler's local D1/R2 emulation at `http://localhost:8787` — no
-Cloudflare resources are touched.
+Cloudflare resources are touched. `.dev.vars` is gitignored; `wrangler dev` reads it automatically.
+
+If you rebuild the frontend (`npm run build`) while `wrangler dev` is already running, its local
+asset watcher can get into a stale state (serving old/broken assets, sometimes returning HTML for
+JS requests with no visible error). If the page loads blank after a rebuild, stop `wrangler dev`,
+`rm -rf .wrangler/state`, and restart rather than trusting the hot reload.
 
 ## How it's built
 
 - **Backend** is a single Worker with plain `fetch`-based routing (`src/index.ts`) — no framework.
-- **D1** stores the account, sessions, API keys, the folder tree, and file metadata. Schema is
+- **D1** stores sessions, API keys, the folder tree, and file metadata (admin credentials live in
+  Workers secrets, not D1). Schema is
   applied lazily on first request (`src/db.ts`) — no separate migration step to run.
 - **R2** stores the actual image bytes, addressed by a random UUID key that's decoupled from the
   folder path, so moving/renaming folders never breaks an existing shared link.
@@ -133,47 +153,46 @@ origin — CORS wouldn't apply either way for that kind of caller.
 
 ## Account recovery
 
-This is a single-account app with no "forgot password" email flow by design (see the
-[password recovery via SMTP write-up below](#why-no-email-based-recovery) for why). If you're
-locked out, reset the password directly from the machine you deploy from:
+Admin credentials are Workers secrets, not something the app stores or manages itself, so recovery
+is just setting them again:
 
 ```bash
-npm run reset-password             # resets the deployed (remote) database
-npm run reset-password -- --local  # resets the local `wrangler dev` database, for testing
+npx wrangler secret put ADMIN_USERNAME
+npx wrangler secret put ADMIN_PASSWORD
 ```
 
-It prompts for a new password (min 8 characters, typed twice to confirm), hashes it the same way
-the app does (PBKDF2-SHA256, matching `src/auth.ts`), and writes it directly to D1 via
-`wrangler d1 execute` — no email, no extra secrets, no new attack surface. If your Cloudflare
-login has access to more than one account, export `CLOUDFLARE_ACCOUNT_ID` first (see
-[Manual deploy](#manual-deploy) above). Input isn't masked on screen (it's echoed as you
-type/paste) — run it in a private terminal.
+Each prompts interactively for the new value — nothing to type on the command line, nothing to
+mask, no custom recovery script or email flow needed. If your Cloudflare login has access to more
+than one account, export `CLOUDFLARE_ACCOUNT_ID` first (see [Manual deploy](#manual-deploy)
+above). Changes take effect immediately; no redeploy required.
 
-If no admin account exists yet in the target database, the script tells you to run first-time
-setup instead (visiting the app's URL) rather than silently doing nothing.
-
-### Why no email-based recovery
-
-Adding SMTP/email-API-based recovery was considered and deliberately skipped: on Workers you'd
-need to integrate a transactional email API (Resend, SendGrid, Mailchannels, etc. — raw SMTP
-isn't practical here), which means new secrets to manage, a sending domain, and a new failure mode
-(misconfigured email = permanently locked out, or a phishing/abuse surface if ever misused). The
-CLI reset above solves the same problem with none of that: the only person who could ever need it
-is the account owner, who already has the Cloudflare/`wrangler` access this script relies on.
+Email-based ("forgot password") recovery was considered and deliberately skipped: on Workers you'd
+need to integrate a transactional email API (Resend, SendGrid, Mailchannels, etc.), which means new
+secrets to manage, a sending domain, and a new failure mode (misconfigured email = permanently
+locked out, or a phishing/abuse surface if ever misused) — for a problem the two commands above
+already solve with no new infrastructure at all.
 
 ## Security notes
 
 This was built with a few deliberate hardening choices worth knowing about:
 
-- **Passwords**: hashed with PBKDF2-SHA256 (Web Crypto, no native dependencies). Iteration count
-  is set to 100,000 rather than the higher counts some guidance recommends — Cloudflare Workers'
-  **free plan caps CPU time at 10ms per request**, and pushing iterations much higher risks login
-  requests being killed for exceeding that budget. If you're on a paid Workers plan you can safely
-  raise `PBKDF2_ITERATIONS` in `src/auth.ts`.
+- **Credentials never touch D1 or the repo**: the admin username/password are Cloudflare Workers
+  secrets (`ADMIN_USERNAME`/`ADMIN_PASSWORD`), encrypted at rest by Cloudflare — there's no
+  password hash sitting in the database to protect from a dump, and no public registration
+  endpoint for a bot to race you to on a freshly deployed instance (see
+  [Account recovery](#account-recovery) above for how this replaced an earlier D1-backed account
+  system).
+- **Login comparison is constant-time and doesn't leak which field was wrong**: username and
+  password are folded into a single SHA-256 comparison (`verifyAdminCredentials` in
+  `src/auth.ts`) rather than looking up a username first and only then checking the password —
+  that pattern lets an attacker distinguish "unknown username" from "known username, wrong
+  password" by response time. One combined comparison, always full cost, nothing to time.
 - **Sessions**: a random 256-bit token stored server-side in a `sessions` table (not just a signed
   cookie), so logging out actually invalidates it. Cookie is `HttpOnly; Secure; SameSite=Lax`.
 - **Login rate limiting**: failed login attempts are tracked per IP in D1; after 8 failures in 15
-  minutes further attempts are rejected with a 429 until the window clears.
+  minutes further attempts are rejected with a 429 until the window clears. This is per-IP, not
+  global or per-account — a distributed attacker rotating source IPs isn't fully stopped by this
+  alone, an accepted tradeoff for a personal single-admin tool.
 - **Uploads are sniffed, not trusted**: the server checks the actual file bytes (magic numbers)
   against the claimed type rather than trusting the browser-supplied `Content-Type` — this blocks
   a relabeled non-image file from being accepted.
@@ -181,13 +200,21 @@ This was built with a few deliberate hardening choices worth knowing about:
   handlers. Since direct links are served from the same origin as the admin app, a malicious SVG
   would otherwise be a stored-XSS vector against your own session. JPG/PNG/GIF/WebP/AVIF only.
 - **Response headers**: every response gets `Content-Security-Policy` (no inline scripts/styles
-  allowed), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, and
-  `Referrer-Policy: no-referrer`.
+  allowed), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+  `Referrer-Policy: no-referrer`, and `Strict-Transport-Security`.
 - **No SQL injection surface**: every D1 query uses parameterized `?` bindings — user input is
-  never concatenated into SQL.
+  never concatenated into SQL. Request bodies are also type-checked before binding (a JSON object
+  or array where a folder id is expected returns a clean `400`, not an unhandled D1 type error).
 - **API keys**: stored as a SHA-256 hash (the plaintext token is shown once, at creation, and
   never persisted or retrievable again) and scoped to upload-only, per the [Remote / API
   upload](#remote--api-upload) section above.
+- **Delete ordering favors invisible-but-harmless over visibly-broken**: deleting a file or folder
+  removes the D1 row(s) before the R2 object(s). If the D1 step fails, nothing changed (safe to
+  retry). If the R2 step fails afterward, the result is an orphaned-but-harmless leftover object in
+  R2 rather than a broken (404) image left sitting in the gallery. Uploads use the opposite,
+  equally deliberate order (R2 write, then D1 insert, with a compensating R2 delete if the D1
+  insert fails) — the goal in both directions is the same: prefer an invisible storage leak over a
+  visibly broken app state.
 
 ## Limits
 

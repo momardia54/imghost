@@ -1,0 +1,6 @@
+# Copy this to .dev.vars for local development (wrangler dev reads it automatically, and it's
+# gitignored — never commit real credentials). The Deploy to Cloudflare button also reads this
+# file to prompt for these two values during deployment.
+
+ADMIN_USERNAME= # the only login username for this instance
+ADMIN_PASSWORD= # min 8 characters recommended

@@ -17,5 +17,6 @@ export function withSecurityHeaders(response: Response): Response {
   headers.set("Referrer-Policy", "no-referrer");
   headers.set("Content-Security-Policy", CSP);
   headers.set("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
+  headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
