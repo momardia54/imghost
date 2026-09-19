@@ -118,6 +118,36 @@ Note: this endpoint has no CORS headers, since it's meant for server-side/CLI ca
 Node/Python script, an agent's tool runner) rather than browser JavaScript running on another
 origin — CORS wouldn't apply either way for that kind of caller.
 
+## Account recovery
+
+This is a single-account app with no "forgot password" email flow by design (see the
+[password recovery via SMTP write-up below](#why-no-email-based-recovery) for why). If you're
+locked out, reset the password directly from the machine you deploy from:
+
+```bash
+npm run reset-password             # resets the deployed (remote) database
+npm run reset-password -- --local  # resets the local `wrangler dev` database, for testing
+```
+
+It prompts for a new password (min 8 characters, typed twice to confirm), hashes it the same way
+the app does (PBKDF2-SHA256, matching `src/auth.ts`), and writes it directly to D1 via
+`wrangler d1 execute` — no email, no extra secrets, no new attack surface. If your Cloudflare
+login has access to more than one account, export `CLOUDFLARE_ACCOUNT_ID` first (see
+[Manual deploy](#manual-deploy) above). Input isn't masked on screen (it's echoed as you
+type/paste) — run it in a private terminal.
+
+If no admin account exists yet in the target database, the script tells you to run first-time
+setup instead (visiting the app's URL) rather than silently doing nothing.
+
+### Why no email-based recovery
+
+Adding SMTP/email-API-based recovery was considered and deliberately skipped: on Workers you'd
+need to integrate a transactional email API (Resend, SendGrid, Mailchannels, etc. — raw SMTP
+isn't practical here), which means new secrets to manage, a sending domain, and a new failure mode
+(misconfigured email = permanently locked out, or a phishing/abuse surface if ever misused). The
+CLI reset above solves the same problem with none of that: the only person who could ever need it
+is the account owner, who already has the Cloudflare/`wrangler` access this script relies on.
+
 ## Security notes
 
 This was built with a few deliberate hardening choices worth knowing about:
