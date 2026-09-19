@@ -10,6 +10,7 @@ import { withSecurityHeaders } from "./security";
 export interface Env {
   DB: D1Database;
   IMAGES: R2Bucket;
+  TRANSFORM?: ImagesBinding;
   ASSETS: Fetcher;
   ADMIN_USERNAME?: string;
   ADMIN_PASSWORD?: string;
@@ -32,7 +33,7 @@ async function handle(req: Request, env: Env): Promise<Response> {
     if (req.method === "GET" && pathname.startsWith("/i/")) {
       const key = pathname.slice("/i/".length);
       if (!key) return new Response("Not found", { status: 404 });
-      return handleServeImage(key, env.IMAGES);
+      return handleServeImage(key, url.searchParams.get("size"), env.IMAGES, env.TRANSFORM);
     }
 
     // Auth endpoints.

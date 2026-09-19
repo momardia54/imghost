@@ -23,6 +23,9 @@
       "database_id": "7d7db1e9-2739-48af-aa0c-0cb0951430b3"
     }
   ],
+  "images": {
+    "binding": "TRANSFORM"
+  },
   "r2_buckets": [
     {
       "binding": "IMAGES",

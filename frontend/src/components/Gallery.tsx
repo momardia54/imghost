@@ -127,7 +127,7 @@ export default function Gallery({
             }}
           >
             <div className="thumb">
-              <img src={file.url} alt={file.original_name} loading="lazy" />
+              <img src={`${file.url}?size=small`} alt={file.original_name} loading="lazy" />
               <div className="thumb-overlay">
                 <button
                   className={copiedId === file.id ? "copied" : ""}

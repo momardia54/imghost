@@ -1,3 +1,5 @@
+import { variantKeys } from "./serve";
+
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 const EXT_BY_TYPE: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -242,7 +244,7 @@ export async function handleDeleteFile(fileId: number, db: D1Database, bucket: R
   // case is an invisible, harmless leftover R2 object, not a broken (404) image left in the
   // gallery.
   await db.prepare("DELETE FROM files WHERE id = ?").bind(fileId).run();
-  await bucket.delete(row.r2_key);
+  await bucket.delete([row.r2_key, ...variantKeys(row.r2_key)]);
 
   return json({ ok: true });
 }

@@ -10,6 +10,7 @@ folders, drag & drop upload, direct public links, upload API.
 - Multi-file upload with progress. JPG, PNG, GIF, WebP, AVIF, max 10MB each
 - Paginated gallery ("All images" or per folder)
 - Public direct links: `/i/<key>`
+- Resized WebP variants via `/i/<key>?size=thumb|small|medium|large` (200/400/800/1600px)
 - Upload API with revocable API keys
 - Admin credentials stored as Workers secrets
 
@@ -78,6 +79,7 @@ Deploy command to `node scripts/ensure-d1.mjs && npx wrangler deploy`.
 | --- | --- | --- |
 | `DB` | D1 | `imghost-db` |
 | `IMAGES` | R2 | `imghost-images` |
+| `TRANSFORM` | Images (transformations) | n/a |
 | `ASSETS` | Static assets | `frontend-dist/` |
 
 Set or rotate secrets from the CLI (also the account recovery path):
@@ -148,6 +150,25 @@ headers on the upload endpoint.
 | DELETE | `/api/keys/:id` | Revoke an API key |
 | GET | `/i/:key` | Public image (no auth) |
 
+## Image variants
+
+`GET /i/<key>?size=<preset>` returns a WebP resized to the preset width (no upscaling).
+
+| Preset | Width |
+| --- | --- |
+| `thumb` | 200 |
+| `small` | 400 |
+| `medium` | 800 |
+| `large` | 1600 |
+
+- Without `size`, or with an unknown value, the original is returned
+- Generated on first request via the Images binding, stored in R2 under `thumbs/<preset>/<key>`,
+  served from R2 afterwards
+- Variants are deleted with their image or folder
+- GIFs are always served as the original
+- Free tier: 5,000 unique transformations per month
+- If the `TRANSFORM` binding is missing, `?size=` falls back to the original
+
 ## Architecture
 
 ```
@@ -179,6 +200,6 @@ scripts/        ensure-d1.mjs
 
 - 10MB per upload
 - Single admin account
-- No thumbnails or resizing
+- Fixed size presets only, no arbitrary dimensions or editing
 - Sidebar counts include sub-folders
 - Cloudflare free-tier quotas apply (Workers requests, D1, R2)

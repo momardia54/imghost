@@ -1,3 +1,5 @@
+import { variantKeys } from "./serve";
+
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
@@ -111,7 +113,7 @@ export async function handleDeleteFolder(
     .prepare(`SELECT r2_key FROM files WHERE folder_id IN (${placeholders})`)
     .bind(...ids)
     .all<{ r2_key: string }>();
-  const keys = (fileRows ?? []).map((r) => r.r2_key);
+  const keys = (fileRows ?? []).flatMap((r) => [r.r2_key, ...variantKeys(r.r2_key)]);
 
   // D1 delete first, R2 delete after (same reasoning as handleDeleteFile): if the D1 step fails,
   // nothing changed yet. ON DELETE CASCADE on folders/files handles descendants once the root
