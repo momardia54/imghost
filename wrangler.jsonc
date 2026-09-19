@@ -5,6 +5,9 @@
   "compatibility_date": "2025-01-01",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
+  "build": {
+    "command": "npm run build"
+  },
   "observability": {
     "enabled": true
   },
