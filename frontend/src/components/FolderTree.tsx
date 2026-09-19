@@ -1,14 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FolderNode, createFolder, deleteFolder, moveFile, renameFolder } from "../api";
 import { confirmModal, promptModal } from "./Modal";
-import {
-  ChevronLeftSmallIcon,
-  ChevronRightSmallIcon,
-  FolderIcon,
-  PencilIcon,
-  PlusIcon,
-  TrashIcon,
-} from "../icons";
+import { ChevronDownIcon, ChevronRightIcon, PencilIcon, PlusIcon, TrashIcon } from "../icons";
 
 export type Selection = { type: "all" } | { type: "folder"; id: number };
 
@@ -27,48 +20,59 @@ function buildChildren(folders: FolderNode[], parentId: number | null): FolderNo
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-// The sidebar shows one level at a time (drill-down), so nesting depth never costs width.
-// What it shows follows the selection: a folder with sub-folders lists those, a leaf folder
-// lists its siblings (with itself highlighted), and "All images" lists the top level.
+// With a filter active: folders whose name matches, plus their ancestors so the path stays visible.
+function visibleIds(folders: FolderNode[], filter: string): Set<number> | null {
+  const needle = filter.trim().toLowerCase();
+  if (!needle) return null;
+  const byId = new Map(folders.map((f) => [f.id, f]));
+  const visible = new Set<number>();
+  for (const f of folders) {
+    if (!f.name.toLowerCase().includes(needle)) continue;
+    let cur: FolderNode | undefined = f;
+    while (cur && !visible.has(cur.id)) {
+      visible.add(cur.id);
+      cur = cur.parent_id === null ? undefined : byId.get(cur.parent_id);
+    }
+  }
+  return visible;
+}
+
 export default function FolderTree({ folders, total, selection, onSelect, onChanged, filter }: Props) {
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [renamingId, setRenamingId] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [dragOverId, setDragOverId] = useState<number | null>(null);
 
-  const byId = new Map(folders.map((f) => [f.id, f]));
-  const selected = selection.type === "folder" ? byId.get(selection.id) : undefined;
-  const hasChildren = (id: number) => folders.some((f) => f.parent_id === id);
-  const browseId: number | null = selected ? (hasChildren(selected.id) ? selected.id : selected.parent_id) : null;
-  const browseFolder = browseId !== null ? byId.get(browseId) : undefined;
-  const rows = buildChildren(folders, browseId);
+  const visible = visibleIds(folders, filter);
 
-  const needle = filter.trim().toLowerCase();
-  const matches = needle
-    ? folders.filter((f) => f.name.toLowerCase().includes(needle)).sort((a, b) => a.name.localeCompare(b.name))
-    : [];
-
-  function parentPath(f: FolderNode): string {
-    const names: string[] = [];
-    let cur = f.parent_id === null ? undefined : byId.get(f.parent_id);
-    while (cur && names.length < 32) {
-      names.unshift(cur.name);
-      cur = cur.parent_id === null ? undefined : byId.get(cur.parent_id);
+  // Reveal the selected folder: expand its ancestors when the selection changes.
+  const selectedId = selection.type === "folder" ? selection.id : null;
+  useEffect(() => {
+    if (selectedId === null) return;
+    const byId = new Map(folders.map((f) => [f.id, f]));
+    const ancestors: number[] = [];
+    let parent = byId.get(selectedId)?.parent_id ?? null;
+    while (parent !== null && ancestors.length < 32) {
+      ancestors.push(parent);
+      parent = byId.get(parent)?.parent_id ?? null;
     }
-    return names.join(" / ");
-  }
+    if (ancestors.length === 0) return;
+    setExpanded((prev) => {
+      if (ancestors.every((id) => prev.has(id))) return prev;
+      const next = new Set(prev);
+      ancestors.forEach((id) => next.add(id));
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
 
-  function isSelfOrDescendantOf(id: number, ancestorId: number): boolean {
-    let cur: FolderNode | undefined = byId.get(id);
-    let guard = 0;
-    while (cur && guard++ < 64) {
-      if (cur.id === ancestorId) return true;
-      cur = cur.parent_id === null ? undefined : byId.get(cur.parent_id);
-    }
-    return false;
-  }
-
-  function goTo(folderId: number | null) {
-    onSelect(folderId === null ? { type: "all" } : { type: "folder", id: folderId });
+  function toggle(id: number) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   async function handleNewFolder() {
@@ -76,10 +80,11 @@ export default function FolderTree({ folders, total, selection, onSelect, onChan
     const name = await promptModal("Folder name:");
     if (!name) return;
     await createFolder(name, parentId);
+    if (parentId !== null) setExpanded((prev) => new Set(prev).add(parentId));
     onChanged();
   }
 
-  function startRename(folder: FolderNode) {
+  async function startRename(folder: FolderNode) {
     setRenamingId(folder.id);
     setRenameValue(folder.name);
   }
@@ -95,105 +100,109 @@ export default function FolderTree({ folders, total, selection, onSelect, onChan
   async function handleDeleteFolder(folder: FolderNode) {
     const ok = await confirmModal(`Delete "${folder.name}" and everything inside it?`);
     if (!ok) return;
-    const selectionGone = selection.type === "folder" && isSelfOrDescendantOf(selection.id, folder.id);
     await deleteFolder(folder.id);
-    if (selectionGone) goTo(folder.parent_id);
+    if (selection.type === "folder" && selection.id === folder.id) {
+      onSelect({ type: "all" });
+    }
     onChanged();
   }
 
-  async function handleDrop(e: React.DragEvent, folderId: number | null, key: number) {
+  async function handleDrop(e: React.DragEvent, folderId: number | null) {
     e.preventDefault();
-    setDragOverId((cur) => (cur === key ? null : cur));
+    setDragOverId(null);
     const fileId = Number(e.dataTransfer.getData("text/x-imghost-file-id"));
     if (!fileId) return;
     await moveFile(fileId, folderId);
     onChanged();
   }
 
-  function dropProps(folderId: number | null, key: number) {
-    return {
-      onDragOver: (e: React.DragEvent) => {
-        e.preventDefault();
-        setDragOverId(key);
-      },
-      onDragLeave: () => setDragOverId((cur) => (cur === key ? null : cur)),
-      onDrop: (e: React.DragEvent) => handleDrop(e, folderId, key),
-    };
-  }
-
-  function renderFolderRow(folder: FolderNode, opts: { current?: boolean; showPath?: boolean } = {}) {
+  function renderNode(folder: FolderNode, depth: number) {
+    const children = buildChildren(folders, folder.id).filter((c) => !visible || visible.has(c.id));
+    const isExpanded = visible ? children.length > 0 : expanded.has(folder.id);
     const isRenaming = renamingId === folder.id;
     const isActive = selection.type === "folder" && selection.id === folder.id;
-    const drills = hasChildren(folder.id) && !opts.current;
-    const path = opts.showPath ? parentPath(folder) : "";
 
     return (
-      <div
-        key={folder.id}
-        className={
-          "folder-row" +
-          (opts.current ? " current" : "") +
-          (isActive ? " active" : "") +
-          (dragOverId === folder.id ? " drag-over" : "")
-        }
-        title={path ? `${path} / ${folder.name}` : folder.name}
-        onClick={() => !isRenaming && goTo(folder.id)}
-        {...dropProps(folder.id, folder.id)}
-      >
-        <FolderIcon className="row-icon" />
-        {isRenaming ? (
-          <input
-            className="rename-input"
-            type="text"
-            autoFocus
-            value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value)}
-            onClick={(e) => e.stopPropagation()}
-            onBlur={() => commitRename(folder.id)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") commitRename(folder.id);
-              if (e.key === "Escape") setRenamingId(null);
+      <div key={folder.id}>
+        <div
+          className={
+            "folder-row" +
+            ` depth-${Math.min(depth, 20)}` +
+            (isActive ? " active" : "") +
+            (dragOverId === folder.id ? " drag-over" : "")
+          }
+          onClick={() => !isRenaming && onSelect({ type: "folder", id: folder.id })}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOverId(folder.id);
+          }}
+          onDragLeave={() => setDragOverId((cur) => (cur === folder.id ? null : cur))}
+          onDrop={(e) => handleDrop(e, folder.id)}
+        >
+          <span
+            className={"caret" + (children.length === 0 ? " leaf" : "")}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (children.length > 0) toggle(folder.id);
             }}
-          />
-        ) : (
-          <>
-            <span className="folder-text">
-              <span className="folder-label">{folder.name}</span>
-              {path && <span className="folder-path">{path}</span>}
-            </span>
-            <span className="folder-count">{folder.count}</span>
-            <span className="row-actions">
-              <button
-                className="icon-btn"
-                title="Rename"
-                aria-label={`Rename ${folder.name}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  startRename(folder);
-                }}
-              >
-                <PencilIcon />
-              </button>
-              <button
-                className="icon-btn danger-hover"
-                title="Delete"
-                aria-label={`Delete ${folder.name}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteFolder(folder);
-                }}
-              >
-                <TrashIcon />
-              </button>
-            </span>
-            {drills && <ChevronRightSmallIcon className="drill" />}
-          </>
-        )}
+          >
+            {children.length > 0 && (isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />)}
+          </span>
+          {isRenaming ? (
+            <input
+              className="rename-input"
+              type="text"
+              autoFocus
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onBlur={() => commitRename(folder.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitRename(folder.id);
+                if (e.key === "Escape") setRenamingId(null);
+              }}
+            />
+          ) : (
+            <>
+              <span className="folder-label" title={folder.name}>
+                {folder.name}
+              </span>
+              <span className="row-end">
+              <span className="folder-count">{folder.count}</span>
+              <span className="row-actions">
+                <button
+                  className="icon-btn"
+                  title="Rename"
+                  aria-label={`Rename ${folder.name}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    startRename(folder);
+                  }}
+                >
+                  <PencilIcon />
+                </button>
+                <button
+                  className="icon-btn danger-hover"
+                  title="Delete"
+                  aria-label={`Delete ${folder.name}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteFolder(folder);
+                  }}
+                >
+                  <TrashIcon />
+                </button>
+              </span>
+              </span>
+            </>
+          )}
+        </div>
+        {isExpanded && children.map((child) => renderNode(child, depth + 1))}
       </div>
     );
   }
 
-  const parentOfBrowse = browseFolder ? (browseFolder.parent_id !== null ? byId.get(browseFolder.parent_id) : undefined) : undefined;
+  const rootFolders = buildChildren(folders, null).filter((f) => !visible || visible.has(f.id));
 
   return (
     <>
@@ -204,48 +213,30 @@ export default function FolderTree({ folders, total, selection, onSelect, onChan
         </button>
       </div>
       <div id="folder-tree-scroll">
-        {needle ? (
-          <>
-            {matches.map((f) => renderFolderRow(f, { showPath: true }))}
-            {matches.length === 0 && <div className="tree-empty">No matching folders</div>}
-          </>
-        ) : (
-          <>
-            <div
-              className={
-                "folder-row" +
-                (selection.type === "all" ? " active" : "") +
-                (dragOverId === -1 ? " drag-over" : "")
-              }
-              onClick={() => goTo(null)}
-              {...dropProps(null, -1)}
-            >
-              <span className="row-icon" />
-              <span className="folder-text">
-                <span className="folder-label">All images</span>
-              </span>
-              <span className="folder-count">{total}</span>
-            </div>
-            {browseFolder && (
-              <>
-                <div
-                  className={"folder-row back" + (dragOverId === -2 ? " drag-over" : "")}
-                  title="Up one level"
-                  onClick={() => goTo(browseFolder.parent_id)}
-                  {...dropProps(browseFolder.parent_id, -2)}
-                >
-                  <ChevronLeftSmallIcon className="row-icon" />
-                  <span className="folder-text">
-                    <span className="folder-label">{parentOfBrowse ? parentOfBrowse.name : "All folders"}</span>
-                  </span>
-                </div>
-                {renderFolderRow(browseFolder, { current: true })}
-              </>
-            )}
-            <div className={browseFolder ? "folder-children" : undefined}>{rows.map((f) => renderFolderRow(f))}</div>
-            {rows.length === 0 && !browseFolder && <div className="tree-empty">No folders yet</div>}
-          </>
-        )}
+        <div id="folder-tree-inner">
+        <div
+          className={
+            "folder-row" +
+            (selection.type === "all" ? " active" : "") +
+            (dragOverId === -1 ? " drag-over" : "")
+          }
+          onClick={() => onSelect({ type: "all" })}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOverId(-1);
+          }}
+          onDragLeave={() => setDragOverId((cur) => (cur === -1 ? null : cur))}
+          onDrop={(e) => handleDrop(e, null)}
+        >
+          <span className="caret leaf" />
+          <span className="folder-label">All images</span>
+          <span className="row-end">
+            <span className="folder-count">{total}</span>
+          </span>
+        </div>
+        {rootFolders.map((f) => renderNode(f, 1))}
+        {visible && rootFolders.length === 0 && <div className="tree-empty">No matching folders</div>}
+        </div>
       </div>
     </>
   );
