@@ -221,3 +221,7 @@ assets/         logo (SVG + PNG); favicon files live in frontend/public/
 - Fixed size presets only, no arbitrary dimensions or editing
 - Sidebar counts include sub-folders
 - Cloudflare free-tier quotas apply (Workers requests, D1, R2)
+
+## License
+
+[MIT](LICENSE)
