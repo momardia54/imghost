@@ -85,7 +85,9 @@ export default function ModalHost() {
           />
         )}
         <div className="modal-actions">
-          <button onClick={onCancel}>Cancel</button>
+          <button className="ghost" onClick={onCancel}>
+            Cancel
+          </button>
           <button className="primary" onClick={onConfirm}>
             OK
           </button>

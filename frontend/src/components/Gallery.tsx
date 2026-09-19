@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { FileItem, FolderNode, UnauthorizedError, deleteFile, listFiles } from "../api";
 import { Selection } from "./FolderTree";
 import { confirmModal } from "./Modal";
+import { CheckIcon, ChevronLeftSmallIcon, ChevronRightSmallIcon, ImageOffIcon, LinkIcon, TrashIcon } from "../icons";
+import { copyToClipboard } from "../clipboard";
 
 const PAGE_SIZE = 24;
 
@@ -62,7 +64,8 @@ export default function Gallery({
 
   async function handleCopy(file: FileItem) {
     const absoluteUrl = new URL(file.url, window.location.origin).href;
-    await navigator.clipboard.writeText(absoluteUrl);
+    const ok = await copyToClipboard(absoluteUrl);
+    if (!ok) return;
     setCopiedId(file.id);
     setTimeout(() => setCopiedId((cur) => (cur === file.id ? null : cur)), 1500);
   }
@@ -79,7 +82,12 @@ export default function Gallery({
   }
 
   if (files.length === 0) {
-    return <div className="empty-state">No images in this folder yet.</div>;
+    return (
+      <div className="empty-state">
+        <ImageOffIcon />
+        No images in this folder yet.
+      </div>
+    );
   }
 
   return (
@@ -96,6 +104,19 @@ export default function Gallery({
           >
             <div className="thumb">
               <img src={file.url} alt={file.original_name} loading="lazy" />
+              <div className="thumb-overlay">
+                <button
+                  className={copiedId === file.id ? "copied" : ""}
+                  title="Copy link"
+                  aria-label="Copy link"
+                  onClick={() => handleCopy(file)}
+                >
+                  {copiedId === file.id ? <CheckIcon /> : <LinkIcon />}
+                </button>
+                <button className="del" title="Delete" aria-label="Delete" onClick={() => handleDelete(file)}>
+                  <TrashIcon />
+                </button>
+              </div>
             </div>
             <div className="info">
               <div className="name" title={file.original_name}>
@@ -104,14 +125,6 @@ export default function Gallery({
               {selection.type === "all" && file.folder_id !== null && (
                 <span className="folder-tag">{folderNameById.get(file.folder_id) ?? "folder"}</span>
               )}
-              <div className="actions">
-                <button className={copiedId === file.id ? "copied" : ""} onClick={() => handleCopy(file)}>
-                  {copiedId === file.id ? "Copied!" : "Copy link"}
-                </button>
-                <button className="del" onClick={() => handleDelete(file)}>
-                  Delete
-                </button>
-              </div>
             </div>
           </div>
         ))}
@@ -120,13 +133,15 @@ export default function Gallery({
       {totalPages > 1 && (
         <div className="pagination">
           <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-            ◀ Prev
+            <ChevronLeftSmallIcon />
+            Prev
           </button>
-          <span>
+          <span className="page-info">
             Page {page} of {totalPages}
           </span>
           <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-            Next ▶
+            Next
+            <ChevronRightSmallIcon />
           </button>
         </div>
       )}

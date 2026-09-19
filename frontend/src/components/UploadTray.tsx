@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { UnauthorizedError, uploadFile } from "../api";
+import { AlertCircleIcon, CheckCircleIcon, UploadCloudIcon } from "../icons";
 
 type UploadState = {
   id: string;
@@ -87,8 +88,13 @@ export default function UploadTray({
           handleFiles(e.dataTransfer.files);
         }}
       >
+        <div className="upload-icon">
+          <UploadCloudIcon />
+        </div>
         Drag &amp; drop images here, or{" "}
-        <button onClick={() => fileInputRef.current?.click()}>choose files</button>
+        <button className="ghost" onClick={() => fileInputRef.current?.click()}>
+          choose files
+        </button>
         <input
           ref={fileInputRef}
           type="file"
@@ -107,6 +113,10 @@ export default function UploadTray({
           <h3>Uploads</h3>
           {uploads.map((u) => (
             <div className="upload-row" key={u.id}>
+              <span className={"status-icon " + u.status}>
+                {u.status === "done" && <CheckCircleIcon />}
+                {u.status === "error" && <AlertCircleIcon />}
+              </span>
               <span className="upload-name" title={u.name}>
                 {u.name}
               </span>

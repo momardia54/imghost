@@ -24,6 +24,7 @@ export default function LoginForm({ onDone }: { onDone: () => void }) {
   return (
     <div className="center-screen">
       <div className="auth-card">
+        <div className="brand-mark" />
         <h1>imghost</h1>
         <p className="sub">Log in to manage your images.</p>
         <form onSubmit={handleSubmit}>

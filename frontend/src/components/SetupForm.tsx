@@ -24,6 +24,7 @@ export default function SetupForm({ onDone }: { onDone: () => void }) {
   return (
     <div className="center-screen">
       <div className="auth-card">
+        <div className="brand-mark" />
         <h1>Welcome to imghost</h1>
         <p className="sub">Create the admin account to get started.</p>
         <form onSubmit={handleSubmit}>

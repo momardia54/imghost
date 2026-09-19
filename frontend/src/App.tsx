@@ -7,6 +7,7 @@ import Breadcrumb from "./components/Breadcrumb";
 import Gallery from "./components/Gallery";
 import UploadTray from "./components/UploadTray";
 import ModalHost from "./components/Modal";
+import { LogOutIcon } from "./icons";
 
 type View = "loading" | "setup" | "login" | "app";
 
@@ -94,6 +95,7 @@ export default function App() {
               setView("login");
             }}
           >
+            <LogOutIcon />
             Log out
           </button>
         </div>

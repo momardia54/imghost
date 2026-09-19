@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FolderNode, createFolder, deleteFolder, moveFile, renameFolder } from "../api";
 import { confirmModal, promptModal } from "./Modal";
+import { ChevronDownIcon, ChevronRightIcon, PencilIcon, PlusIcon, TrashIcon } from "../icons";
 
 export type Selection = { type: "all" } | { type: "folder"; id: number };
 
@@ -104,7 +105,7 @@ export default function FolderTree({ folders, total, selection, onSelect, onChan
               if (children.length > 0) toggle(folder.id);
             }}
           >
-            {isExpanded ? "▾" : "▸"}
+            {children.length > 0 && (isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />)}
           </span>
           {isRenaming ? (
             <input
@@ -128,22 +129,24 @@ export default function FolderTree({ folders, total, selection, onSelect, onChan
                 <button
                   className="icon-btn"
                   title="Rename"
+                  aria-label={`Rename ${folder.name}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     startRename(folder);
                   }}
                 >
-                  ✎
+                  <PencilIcon />
                 </button>
                 <button
-                  className="icon-btn"
+                  className="icon-btn danger-hover"
                   title="Delete"
+                  aria-label={`Delete ${folder.name}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDeleteFolder(folder);
                   }}
                 >
-                  🗑
+                  <TrashIcon />
                 </button>
               </span>
             </>
@@ -160,8 +163,8 @@ export default function FolderTree({ folders, total, selection, onSelect, onChan
     <>
       <div className="sidebar-header">
         Folders
-        <button className="icon-btn" title="New folder" onClick={handleNewFolder}>
-          +
+        <button className="icon-btn" title="New folder" aria-label="New folder" onClick={handleNewFolder}>
+          <PlusIcon />
         </button>
       </div>
       <div id="folder-tree-scroll">
