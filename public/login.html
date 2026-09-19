@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>imghost — Log in</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="center-screen">
+    <div class="auth-card">
+      <h1>imghost</h1>
+      <p class="sub">Log in to manage your images.</p>
+      <form id="login-form">
+        <label for="username">Username</label>
+        <input type="text" id="username" autocomplete="username" required />
+        <label for="password">Password</label>
+        <input type="password" id="password" autocomplete="current-password" required />
+        <div class="error-msg" id="error"></div>
+        <button type="submit" class="primary">Log in</button>
+      </form>
+    </div>
+  </div>
+  <script src="/login.js"></script>
+</body>
+</html>

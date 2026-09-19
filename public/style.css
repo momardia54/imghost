@@ -1,0 +1,329 @@
+:root {
+  --bg: #0f1115;
+  --panel: #171a21;
+  --panel-2: #1e222c;
+  --border: #2a2f3a;
+  --text: #e7e9ee;
+  --text-dim: #9aa1ac;
+  --accent: #5b8cff;
+  --accent-hover: #4577f5;
+  --danger: #e5534b;
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.center-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.auth-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px;
+  width: 100%;
+  max-width: 360px;
+}
+
+.auth-card h1 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+
+.auth-card p.sub {
+  margin: 0 0 24px;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+input[type="text"], input[type="password"] {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--text);
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+input:focus { outline: 1px solid var(--accent); }
+
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 16px;
+}
+
+button.primary {
+  width: 100%;
+  background: var(--accent);
+  color: white;
+}
+button.primary:hover { background: var(--accent-hover); }
+
+.error-msg {
+  color: var(--danger);
+  font-size: 13px;
+  margin: -8px 0 16px;
+  min-height: 16px;
+}
+
+/* App shell */
+.app {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar h2 {
+  font-size: 15px;
+  margin: 0 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sidebar h2 button {
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px 8px;
+}
+
+#folder-tree {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.folder-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+.folder-item:hover { background: var(--panel-2); }
+.folder-item.active { background: var(--panel-2); color: var(--text); }
+.folder-item .del-folder {
+  visibility: hidden;
+  background: transparent;
+  color: var(--text-dim);
+  padding: 0 4px;
+}
+.folder-item:hover .del-folder { visibility: visible; }
+.folder-item .del-folder:hover { color: var(--danger); }
+
+.folder-item.depth-0 { padding-left: 8px; }
+.folder-item.depth-1 { padding-left: 24px; }
+.folder-item.depth-2 { padding-left: 40px; }
+.folder-item.depth-3 { padding-left: 56px; }
+.folder-item.depth-4 { padding-left: 72px; }
+.folder-item.depth-5 { padding-left: 88px; }
+.folder-item.depth-6 { padding-left: 104px; }
+.folder-item.depth-7 { padding-left: 120px; }
+.folder-item.depth-8 { padding-left: 136px; }
+
+.sidebar-footer {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-top: 12px;
+}
+.sidebar-footer button {
+  width: 100%;
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+.sidebar-footer button:hover { color: var(--text); }
+
+.main {
+  padding: 24px 32px;
+  overflow-y: auto;
+}
+
+.main-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.main-header h1 {
+  font-size: 18px;
+  margin: 0;
+  color: var(--text-dim);
+}
+
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 14px;
+  margin-bottom: 24px;
+  transition: border-color 0.15s, color 0.15s;
+}
+.dropzone.dragover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.dropzone input { display: none; }
+.dropzone-hint { margin-top: 6px; font-size: 12px; }
+.dropzone button {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  margin-top: 8px;
+}
+
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.image-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.image-card .thumb {
+  aspect-ratio: 1 / 1;
+  background: var(--panel-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.image-card .thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+.image-card .info {
+  padding: 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.image-card .info .name {
+  color: var(--text);
+  font-size: 13px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-card .actions {
+  display: flex;
+  gap: 6px;
+}
+.image-card .actions button {
+  flex: 1;
+  font-size: 12px;
+  padding: 6px 8px;
+  background: var(--panel-2);
+  color: var(--text);
+}
+.image-card .actions button.copied { background: var(--accent); color: white; }
+.image-card .actions button.del { color: var(--danger); }
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.modal-overlay[hidden] {
+  display: none;
+}
+
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  width: 100%;
+  max-width: 360px;
+}
+
+.modal-message {
+  font-size: 14px;
+  margin-bottom: 16px;
+  color: var(--text);
+}
+
+.modal #modal-input {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--text);
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.modal-actions button {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.modal-actions button.primary {
+  background: var(--accent);
+  color: white;
+  border: none;
+}
+
+.empty-state {
+  color: var(--text-dim);
+  font-size: 14px;
+  padding: 40px 0;
+  text-align: center;
+}
