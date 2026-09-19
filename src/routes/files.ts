@@ -107,8 +107,10 @@ export async function handleListFiles(req: Request, db: D1Database): Promise<Res
   );
   const offset = (page - 1) * pageSize;
 
-  // A folder listing is recursive: it includes files in every descendant folder too.
-  const recursive = scope !== "all" && folderId !== null;
+  // Name search spans every folder; otherwise a folder listing is recursive: it includes files
+  // in every descendant folder too.
+  const q = (url.searchParams.get("q") ?? "").trim().slice(0, 100);
+  const recursive = !q && scope !== "all" && folderId !== null;
   const cte = recursive
     ? `WITH RECURSIVE descendants(id) AS (
          SELECT id FROM folders WHERE id = ?
@@ -116,12 +118,18 @@ export async function handleListFiles(req: Request, db: D1Database): Promise<Res
          SELECT f.id FROM folders f JOIN descendants d ON f.parent_id = d.id
        )`
     : "";
-  const whereClause = recursive
-    ? "WHERE folder_id IN (SELECT id FROM descendants)"
-    : scope === "all"
-      ? ""
-      : "WHERE folder_id IS NULL";
-  const bindArgs = recursive ? [folderId] : [];
+  const whereClause = q
+    ? "WHERE original_name LIKE ? ESCAPE '\\'"
+    : recursive
+      ? "WHERE folder_id IN (SELECT id FROM descendants)"
+      : scope === "all"
+        ? ""
+        : "WHERE folder_id IS NULL";
+  const bindArgs: unknown[] = q
+    ? [`%${q.replace(/[\\%_]/g, "\\$&")}%`]
+    : recursive
+      ? [folderId]
+      : [];
 
   const countRow = await db
     .prepare(`${cte} SELECT COUNT(*) as total FROM files ${whereClause}`)

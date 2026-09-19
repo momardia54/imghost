@@ -609,7 +609,7 @@ progress::-moz-progress-bar {
 
 .subfolder-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 12px;
   margin-bottom: 18px;
 }
@@ -960,4 +960,43 @@ progress::-moz-progress-bar {
   position: absolute;
   top: 16px;
   right: 16px;
+}
+
+/* Sidebar search */
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 6px 14px;
+  padding: 0 8px 0 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--foreground-subtle);
+  transition: border-color 180ms var(--ease);
+}
+.search-box:focus-within {
+  border-color: var(--accent);
+}
+.search-box svg {
+  flex-shrink: 0;
+}
+.search-box input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 8px 0;
+  font-size: 13px;
+}
+.search-box button.icon-btn {
+  min-width: 22px;
+  min-height: 22px;
+  padding: 3px;
+}
+.tree-empty {
+  color: var(--foreground-subtle);
+  font-size: 13px;
+  padding: 10px 12px;
 }

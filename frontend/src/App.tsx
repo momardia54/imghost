@@ -7,6 +7,7 @@ import Gallery from "./components/Gallery";
 import UploadTray from "./components/UploadTray";
 import ModalHost from "./components/Modal";
 import ApiKeysPanel from "./components/ApiKeysPanel";
+import SearchBox from "./components/SearchBox";
 import ThemeToggle from "./components/ThemeToggle";
 import { KeyIcon, LogOutIcon, LogoMark } from "./icons";
 
@@ -19,6 +20,20 @@ export default function App() {
   const [selection, setSelection] = useState<Selection>({ type: "all" });
   const [refreshKey, setRefreshKey] = useState(0);
   const [showApiKeys, setShowApiKeys] = useState(false);
+  const [query, setQuery] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setSearchTerm(query.trim()), 250);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  // Picking a folder (sidebar, breadcrumb or a card) leaves search mode.
+  function select(sel: Selection) {
+    setQuery("");
+    setSearchTerm("");
+    setSelection(sel);
+  }
 
   const checkAuth = useCallback(() => {
     getMe()
@@ -99,12 +114,14 @@ export default function App() {
           <LogoMark />
           imghost
         </div>
+        <SearchBox value={query} onChange={setQuery} />
         <FolderTree
           folders={folders}
           total={total}
           selection={selection}
-          onSelect={setSelection}
+          onSelect={select}
           onChanged={handleChanged}
+          filter={query}
         />
         <div className="sidebar-footer">
           <ThemeToggle label />
@@ -125,16 +142,23 @@ export default function App() {
       </aside>
       <main className="main">
         <div className="main-header">
-          <h1>{selection.type === "all" ? "All images" : folders.find((f) => f.id === selection.id)?.name ?? ""}</h1>
+          <h1>
+            {searchTerm
+              ? `Results for "${searchTerm}"`
+              : selection.type === "all"
+                ? "All images"
+                : folders.find((f) => f.id === selection.id)?.name ?? ""}
+          </h1>
         </div>
-        <Breadcrumb folders={folders} selection={selection} onSelect={setSelection} />
-        <UploadTray folderId={folderId} onUploaded={handleChanged} onUnauthorized={handleUnauthorized} />
+        {!searchTerm && <Breadcrumb folders={folders} selection={selection} onSelect={select} />}
+        {!searchTerm && <UploadTray folderId={folderId} onUploaded={handleChanged} onUnauthorized={handleUnauthorized} />}
         <Gallery
           selection={selection}
           folders={folders}
           refreshKey={refreshKey}
           onChanged={handleChanged}
-          onSelect={setSelection}
+          query={searchTerm}
+          onSelect={select}
           onUnauthorized={handleUnauthorized}
         />
       </main>

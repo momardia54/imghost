@@ -25,6 +25,7 @@ Login:
 - Nested folders: expand/collapse, inline rename, drag-and-drop to move images
 - Folder view is recursive (includes sub-folders) and shows clickable sub-folder cards
 - Multi-file upload with progress. JPG, PNG, GIF, WebP, AVIF, max 10MB each
+- Sidebar search: filters the folder tree by name and lists matching folders and images (by file name) across the whole library
 - Paginated gallery ("All images" or per folder)
 - Public direct links: `/i/<key>`
 - Resized WebP variants via `/i/<key>?size=thumb|small|medium|large` (200/400/800/1600px)
@@ -159,7 +160,7 @@ headers on the upload endpoint.
 | POST | `/api/folders` | Create folder (`name`, `parent_id`) |
 | PATCH | `/api/folders/:id` | Rename |
 | DELETE | `/api/folders/:id` | Delete folder, descendants and their files |
-| GET | `/api/files` | List. Query: `folder_id`, `scope=all`, `page`, `limit` (max 100). Folder listings include sub-folders |
+| GET | `/api/files` | List. Query: `folder_id`, `scope=all`, `q` (file-name search across all folders), `page`, `limit` (max 100). Folder listings include sub-folders |
 | POST | `/api/upload` | Upload (session or API key) |
 | PATCH | `/api/files/:id` | Move (`folder_id`) |
 | DELETE | `/api/files/:id` | Delete |

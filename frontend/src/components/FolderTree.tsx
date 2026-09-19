@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FolderNode, createFolder, deleteFolder, moveFile, renameFolder } from "../api";
 import { confirmModal, promptModal } from "./Modal";
 import { ChevronDownIcon, ChevronRightIcon, PencilIcon, PlusIcon, TrashIcon } from "../icons";
@@ -11,6 +11,7 @@ interface Props {
   selection: Selection;
   onSelect: (sel: Selection) => void;
   onChanged: () => void;
+  filter: string;
 }
 
 function buildChildren(folders: FolderNode[], parentId: number | null): FolderNode[] {
@@ -19,11 +20,51 @@ function buildChildren(folders: FolderNode[], parentId: number | null): FolderNo
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export default function FolderTree({ folders, total, selection, onSelect, onChanged }: Props) {
+// With a filter active: folders whose name matches, plus their ancestors so the path stays visible.
+function visibleIds(folders: FolderNode[], filter: string): Set<number> | null {
+  const needle = filter.trim().toLowerCase();
+  if (!needle) return null;
+  const byId = new Map(folders.map((f) => [f.id, f]));
+  const visible = new Set<number>();
+  for (const f of folders) {
+    if (!f.name.toLowerCase().includes(needle)) continue;
+    let cur: FolderNode | undefined = f;
+    while (cur && !visible.has(cur.id)) {
+      visible.add(cur.id);
+      cur = cur.parent_id === null ? undefined : byId.get(cur.parent_id);
+    }
+  }
+  return visible;
+}
+
+export default function FolderTree({ folders, total, selection, onSelect, onChanged, filter }: Props) {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [renamingId, setRenamingId] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [dragOverId, setDragOverId] = useState<number | null>(null);
+
+  const visible = visibleIds(folders, filter);
+
+  // Reveal the selected folder: expand its ancestors when the selection changes.
+  const selectedId = selection.type === "folder" ? selection.id : null;
+  useEffect(() => {
+    if (selectedId === null) return;
+    const byId = new Map(folders.map((f) => [f.id, f]));
+    const ancestors: number[] = [];
+    let parent = byId.get(selectedId)?.parent_id ?? null;
+    while (parent !== null && ancestors.length < 32) {
+      ancestors.push(parent);
+      parent = byId.get(parent)?.parent_id ?? null;
+    }
+    if (ancestors.length === 0) return;
+    setExpanded((prev) => {
+      if (ancestors.every((id) => prev.has(id))) return prev;
+      const next = new Set(prev);
+      ancestors.forEach((id) => next.add(id));
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
 
   function toggle(id: number) {
     setExpanded((prev) => {
@@ -76,8 +117,8 @@ export default function FolderTree({ folders, total, selection, onSelect, onChan
   }
 
   function renderNode(folder: FolderNode, depth: number) {
-    const children = buildChildren(folders, folder.id);
-    const isExpanded = expanded.has(folder.id);
+    const children = buildChildren(folders, folder.id).filter((c) => !visible || visible.has(c.id));
+    const isExpanded = visible ? children.length > 0 : expanded.has(folder.id);
     const isRenaming = renamingId === folder.id;
     const isActive = selection.type === "folder" && selection.id === folder.id;
 
@@ -157,7 +198,7 @@ export default function FolderTree({ folders, total, selection, onSelect, onChan
     );
   }
 
-  const rootFolders = buildChildren(folders, null);
+  const rootFolders = buildChildren(folders, null).filter((f) => !visible || visible.has(f.id));
 
   return (
     <>
@@ -187,6 +228,7 @@ export default function FolderTree({ folders, total, selection, onSelect, onChan
           <span className="folder-count">{total}</span>
         </div>
         {rootFolders.map((f) => renderNode(f, 1))}
+        {visible && rootFolders.length === 0 && <div className="tree-empty">No matching folders</div>}
       </div>
     </>
   );

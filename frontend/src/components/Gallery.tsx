@@ -11,6 +11,7 @@ export default function Gallery({
   selection,
   folders,
   refreshKey,
+  query,
   onChanged,
   onSelect,
   onUnauthorized,
@@ -18,6 +19,7 @@ export default function Gallery({
   selection: Selection;
   folders: FolderNode[];
   refreshKey: number;
+  query: string;
   onChanged: () => void;
   onSelect: (sel: Selection) => void;
   onUnauthorized: () => void;
@@ -28,7 +30,7 @@ export default function Gallery({
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<number | null>(null);
 
-  const selectionKey = selection.type === "all" ? "all" : `folder-${selection.id}`;
+  const selectionKey = query ? `search-${query}` : selection.type === "all" ? "all" : `folder-${selection.id}`;
 
   useEffect(() => {
     setPage(1);
@@ -37,8 +39,9 @@ export default function Gallery({
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    const opts =
-      selection.type === "all"
+    const opts = query
+      ? { folderId: null, q: query, page, limit: PAGE_SIZE }
+      : selection.type === "all"
         ? { folderId: null, scope: "all" as const, page, limit: PAGE_SIZE }
         : { folderId: selection.id, page, limit: PAGE_SIZE };
 
@@ -62,10 +65,22 @@ export default function Gallery({
   }, [selectionKey, page, refreshKey]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const subfolders =
-    selection.type === "folder"
+  const needle = query.toLowerCase();
+  const subfolders = query
+    ? folders.filter((f) => f.name.toLowerCase().includes(needle)).sort((a, b) => a.name.localeCompare(b.name))
+    : selection.type === "folder"
       ? folders.filter((f) => f.parent_id === selection.id).sort((a, b) => a.name.localeCompare(b.name))
       : [];
+
+  function folderPath(f: FolderNode): string {
+    const names: string[] = [];
+    let cur: FolderNode | undefined = f;
+    while (cur && names.length < 16) {
+      names.unshift(cur.name);
+      cur = cur.parent_id === null ? undefined : folders.find((x) => x.id === cur!.parent_id);
+    }
+    return names.join(" / ");
+  }
   const folderNameById = new Map(folders.map((f) => [f.id, f.name]));
 
   async function handleCopy(file: FileItem) {
@@ -92,8 +107,8 @@ export default function Gallery({
       {subfolders.map((f) => (
         <button className="subfolder-card" key={f.id} onClick={() => onSelect({ type: "folder", id: f.id })}>
           <FolderIcon />
-          <span className="name" title={f.name}>
-            {f.name}
+          <span className="name" title={folderPath(f)}>
+            {query ? folderPath(f) : f.name}
           </span>
           <span className="folder-count">{f.count}</span>
         </button>
@@ -107,7 +122,7 @@ export default function Gallery({
         {subfolderGrid}
         <div className="empty-state">
           <ImageOffIcon />
-          No images in this folder yet.
+          {query ? `No images match "${query}".` : "No images in this folder yet."}
         </div>
       </>
     );
@@ -146,7 +161,7 @@ export default function Gallery({
               <div className="name" title={file.original_name}>
                 {file.original_name}
               </div>
-              {selection.type === "all" && file.folder_id !== null && (
+              {(selection.type === "all" || query) && file.folder_id !== null && (
                 <span className="folder-tag">{folderNameById.get(file.folder_id) ?? "folder"}</span>
               )}
             </div>

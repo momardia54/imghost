@@ -87,9 +87,17 @@ export interface FilesResponse {
   pageSize: number;
 }
 
-export function listFiles(opts: { folderId: number | null; scope?: "all"; page: number; limit: number }): Promise<FilesResponse> {
+export function listFiles(opts: {
+  folderId: number | null;
+  scope?: "all";
+  q?: string;
+  page: number;
+  limit: number;
+}): Promise<FilesResponse> {
   const params = new URLSearchParams();
-  if (opts.scope === "all") {
+  if (opts.q) {
+    params.set("q", opts.q);
+  } else if (opts.scope === "all") {
     params.set("scope", "all");
   } else if (opts.folderId !== null) {
     params.set("folder_id", String(opts.folderId));
