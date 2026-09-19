@@ -1,6 +1,6 @@
 import { LogoMark } from "../icons";
 import { FormEvent, useState } from "react";
-import { login } from "../api";
+import { UnauthorizedError, login } from "../api";
 
 export default function LoginForm({ onDone }: { onDone: () => void }) {
   const [username, setUsername] = useState("");
@@ -16,7 +16,8 @@ export default function LoginForm({ onDone }: { onDone: () => void }) {
       await login(username.trim(), password);
       onDone();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid credentials");
+      if (err instanceof UnauthorizedError) setError("Invalid username or password.");
+      else setError(err instanceof Error && err.message ? err.message : "Login failed. Please try again.");
     } finally {
       setSubmitting(false);
     }
