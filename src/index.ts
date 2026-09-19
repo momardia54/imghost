@@ -1,8 +1,8 @@
 import { ensureSchema } from "./db";
 import { getSessionFromRequest } from "./auth";
 import { handleSetup, handleLogin, handleLogout, handleMe } from "./routes/auth";
-import { handleTree, handleCreateFolder, handleDeleteFolder } from "./routes/folders";
-import { handleListFiles, handleUpload, handleDeleteFile } from "./routes/files";
+import { handleTree, handleCreateFolder, handleDeleteFolder, handleRenameFolder } from "./routes/folders";
+import { handleListFiles, handleUpload, handleDeleteFile, handleMoveFile } from "./routes/files";
 import { handleServeImage } from "./routes/serve";
 import { withSecurityHeaders } from "./security";
 
@@ -61,6 +61,9 @@ async function handle(req: Request, env: Env): Promise<Response> {
       if (folderMatch && req.method === "DELETE") {
         return handleDeleteFolder(Number(folderMatch[1]), env.DB, env.IMAGES);
       }
+      if (folderMatch && req.method === "PATCH") {
+        return handleRenameFolder(Number(folderMatch[1]), req, env.DB);
+      }
       if (pathname === "/api/files" && req.method === "GET") {
         return handleListFiles(req, env.DB);
       }
@@ -70,6 +73,9 @@ async function handle(req: Request, env: Env): Promise<Response> {
       const fileMatch = pathname.match(/^\/api\/files\/(\d+)$/);
       if (fileMatch && req.method === "DELETE") {
         return handleDeleteFile(Number(fileMatch[1]), env.DB, env.IMAGES);
+      }
+      if (fileMatch && req.method === "PATCH") {
+        return handleMoveFile(Number(fileMatch[1]), req, env.DB);
       }
 
       return json({ error: "Not found" }, 404);

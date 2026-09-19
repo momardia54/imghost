@@ -2,15 +2,24 @@
   "name": "imghost",
   "private": true,
   "version": "1.0.0",
+  "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "d1:create": "wrangler d1 create imghost-db",
-    "r2:create": "wrangler r2 bucket create imghost-images"
+    "build": "vite build",
+    "dev": "npm run build && wrangler dev",
+    "dev:frontend": "vite dev",
+    "deploy": "npm run build && wrangler deploy"
   },
   "devDependencies": {
-    "wrangler": "^4.20.0",
     "@cloudflare/workers-types": "^5.20260918.1",
-    "typescript": "^5.6.0"
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "^5.6.0",
+    "vite": "^8.3.0",
+    "wrangler": "^4.20.0"
+  },
+  "dependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   }
 }

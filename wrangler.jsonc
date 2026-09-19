@@ -9,8 +9,9 @@
     "enabled": true
   },
   "assets": {
-    "directory": "./public",
-    "binding": "ASSETS"
+    "directory": "./frontend-dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
   },
   "d1_databases": [
     {

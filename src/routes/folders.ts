@@ -8,10 +8,19 @@ function json(data: unknown, status = 200): Response {
 type FolderRow = { id: number; parent_id: number | null; name: string };
 
 export async function handleTree(db: D1Database): Promise<Response> {
-  const { results } = await db
-    .prepare("SELECT id, parent_id, name FROM folders ORDER BY name COLLATE NOCASE")
-    .all<FolderRow>();
-  return json({ folders: results ?? [] });
+  const [{ results: folders }, { results: counts }, totalRow] = await Promise.all([
+    db.prepare("SELECT id, parent_id, name FROM folders ORDER BY name COLLATE NOCASE").all<FolderRow>(),
+    db.prepare("SELECT folder_id, COUNT(*) as count FROM files WHERE folder_id IS NOT NULL GROUP BY folder_id").all<{
+      folder_id: number;
+      count: number;
+    }>(),
+    db.prepare("SELECT COUNT(*) as total FROM files").first<{ total: number }>(),
+  ]);
+
+  const countByFolder = new Map((counts ?? []).map((c) => [c.folder_id, c.count]));
+  const foldersWithCounts = (folders ?? []).map((f) => ({ ...f, count: countByFolder.get(f.id) ?? 0 }));
+
+  return json({ folders: foldersWithCounts, total: totalRow?.total ?? 0 });
 }
 
 export async function handleCreateFolder(req: Request, db: D1Database): Promise<Response> {
@@ -31,6 +40,18 @@ export async function handleCreateFolder(req: Request, db: D1Database): Promise<
     .first<{ id: number }>();
 
   return json({ id: result?.id, name, parent_id: parentId }, 201);
+}
+
+export async function handleRenameFolder(folderId: number, req: Request, db: D1Database): Promise<Response> {
+  const existing = await db.prepare("SELECT id FROM folders WHERE id = ?").bind(folderId).first();
+  if (!existing) return json({ error: "Folder not found" }, 404);
+
+  const body = await req.json<{ name?: string }>().catch(() => null);
+  const name = body?.name?.trim();
+  if (!name) return json({ error: "Folder name required" }, 400);
+
+  await db.prepare("UPDATE folders SET name = ? WHERE id = ?").bind(name, folderId).run();
+  return json({ ok: true, id: folderId, name });
 }
 
 async function collectDescendantIds(db: D1Database, rootId: number): Promise<number[]> {

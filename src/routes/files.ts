@@ -76,19 +76,37 @@ type FileRow = {
   created_at: string;
 };
 
+const DEFAULT_PAGE_SIZE = 24;
+const MAX_PAGE_SIZE = 100;
+
 export async function handleListFiles(req: Request, db: D1Database): Promise<Response> {
   const url = new URL(req.url);
+  const scope = url.searchParams.get("scope");
   const folderParam = url.searchParams.get("folder_id");
-  const folderId = folderParam ? Number(folderParam) : null;
+  const folderId = folderParam !== null ? Number(folderParam) : null;
 
-  const query =
-    folderId === null
-      ? db.prepare("SELECT * FROM files WHERE folder_id IS NULL ORDER BY created_at DESC")
-      : db.prepare("SELECT * FROM files WHERE folder_id = ? ORDER BY created_at DESC").bind(folderId);
+  const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
+  const pageSize = Math.min(
+    MAX_PAGE_SIZE,
+    Math.max(1, Number(url.searchParams.get("limit")) || DEFAULT_PAGE_SIZE)
+  );
+  const offset = (page - 1) * pageSize;
 
-  const { results } = await query.all<FileRow>();
+  const whereClause = scope === "all" ? "" : folderId === null ? "WHERE folder_id IS NULL" : "WHERE folder_id = ?";
+  const bindArgs = scope === "all" || folderId === null ? [] : [folderId];
+
+  const countRow = await db
+    .prepare(`SELECT COUNT(*) as total FROM files ${whereClause}`)
+    .bind(...bindArgs)
+    .first<{ total: number }>();
+
+  const { results } = await db
+    .prepare(`SELECT * FROM files ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+    .bind(...bindArgs, pageSize, offset)
+    .all<FileRow>();
+
   const files = (results ?? []).map((f) => ({ ...f, url: `/i/${f.r2_key}` }));
-  return json({ files });
+  return json({ files, total: countRow?.total ?? 0, page, pageSize });
 }
 
 export async function handleUpload(
@@ -152,6 +170,25 @@ export async function handleUpload(
     },
     201
   );
+}
+
+export async function handleMoveFile(fileId: number, req: Request, db: D1Database): Promise<Response> {
+  const existing = await db.prepare("SELECT id FROM files WHERE id = ?").bind(fileId).first();
+  if (!existing) return json({ error: "File not found" }, 404);
+
+  const body = await req.json<{ folder_id?: number | null }>().catch(() => null);
+  if (!body || !("folder_id" in body)) {
+    return json({ error: "folder_id required" }, 400);
+  }
+  const folderId = body.folder_id;
+
+  if (folderId !== null) {
+    const parent = await db.prepare("SELECT id FROM folders WHERE id = ?").bind(folderId).first();
+    if (!parent) return json({ error: "Folder not found" }, 404);
+  }
+
+  await db.prepare("UPDATE files SET folder_id = ? WHERE id = ?").bind(folderId, fileId).run();
+  return json({ ok: true, folder_id: folderId });
 }
 
 export async function handleDeleteFile(fileId: number, db: D1Database, bucket: R2Bucket): Promise<Response> {
