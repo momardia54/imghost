@@ -169,3 +169,20 @@ export function FolderIcon(props: SVGProps<SVGSVGElement>) {
     </Icon>
   );
 }
+
+export function LogoMark(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 512 512" width={32} height={32} aria-hidden="true" {...props}>
+      <defs>
+        <linearGradient id="logo-bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#7B84E8" />
+          <stop offset="1" stopColor="#4C56C4" />
+        </linearGradient>
+      </defs>
+      <rect width="512" height="512" rx="116" fill="url(#logo-bg)" />
+      <circle cx="358" cy="164" r="46" fill="#fff" />
+      <path d="M232 400 L352 250 L470 400 Z" fill="#fff" fillOpacity="0.6" />
+      <path d="M60 400 L206 200 L352 400 Z" fill="#fff" />
+    </svg>
+  );
+}

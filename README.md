@@ -1,4 +1,6 @@
-# imghost
+<p align="center"><img src="assets/logo.svg" alt="imghost logo" width="96" height="96"></p>
+
+<h1 align="center">imghost</h1>
 
 Self-hosted image host on Cloudflare's free tier (Workers + D1 + R2). Single admin account, nested
 folders, drag & drop upload, direct public links, upload API.
@@ -179,6 +181,7 @@ src/            Worker (fetch router, no framework)
   security.ts   CSP and security headers
 frontend/       React + TypeScript, built with Vite into frontend-dist/
 scripts/        ensure-d1.mjs
+assets/         logo (SVG + PNG); favicon files live in frontend/public/
 ```
 
 - D1: sessions, API keys, folders, file metadata

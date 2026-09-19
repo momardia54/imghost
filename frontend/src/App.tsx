@@ -7,7 +7,7 @@ import Gallery from "./components/Gallery";
 import UploadTray from "./components/UploadTray";
 import ModalHost from "./components/Modal";
 import ApiKeysPanel from "./components/ApiKeysPanel";
-import { KeyIcon, LogOutIcon } from "./icons";
+import { KeyIcon, LogOutIcon, LogoMark } from "./icons";
 
 type View = "loading" | "not-configured" | "login" | "app";
 
@@ -63,7 +63,7 @@ export default function App() {
     return (
       <div className="center-screen">
         <div className="auth-card">
-          <div className="brand-mark" />
+          <LogoMark className="brand-mark" />
           <h1>Not configured yet</h1>
           <p className="sub">
             No admin username and password have been set for this instance yet. In the Cloudflare
@@ -94,6 +94,10 @@ export default function App() {
   return (
     <div className="app">
       <aside className="sidebar">
+        <div className="brand">
+          <LogoMark />
+          imghost
+        </div>
         <FolderTree
           folders={folders}
           total={total}
