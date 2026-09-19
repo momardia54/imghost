@@ -5,6 +5,21 @@
 Self-hosted image host on Cloudflare's free tier (Workers + D1 + R2). Single admin account, nested
 folders, drag & drop upload, direct public links, upload API.
 
+![imghost gallery, dark mode](assets/screenshots/gallery-dark.jpg)
+
+<details>
+<summary>More screenshots</summary>
+
+Light mode:
+
+![imghost gallery, light mode](assets/screenshots/gallery-light.jpg)
+
+Login:
+
+![imghost login](assets/screenshots/login-dark.jpg)
+
+</details>
+
 ## Features
 
 - Nested folders: expand/collapse, inline rename, drag-and-drop to move images
