@@ -25,8 +25,21 @@ upload, and a direct copyable link per image.
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/momardia54/imghost)
 
 The button walks you through connecting your Cloudflare account and provisions the Worker, D1
-database, and R2 bucket for you. After it finishes, open your new Worker's URL — the first visit
-will prompt you to create the admin account.
+database, and R2 bucket for you.
+
+**Known gotcha:** `wrangler.jsonc` in this repo has a `d1_databases[0].database_id` baked in — it
+has to, so that *this* repo's own Git-connected auto-deploy keeps working — but that ID belongs to
+the database in the original deployer's account, not yours. When you use the button, Cloudflare
+creates a *new* D1 database in your account but doesn't rewrite that ID in your fork, so the first
+build fails with something like `binding DB of type d1 must have a valid database_id`. Fix it once:
+
+```bash
+npx wrangler d1 list          # find the database it just created for you (e.g. "imghost-db")
+```
+
+Copy that database's `uuid`, paste it into your fork's `wrangler.jsonc` in place of the existing
+`database_id`, commit, and push — the next auto-deploy will succeed. After that, open your Worker's
+URL and the first visit will prompt you to create the admin account.
 
 ### Manual deploy
 
