@@ -35,15 +35,31 @@ credential values** (`ADMIN_USERNAME`/`ADMIN_PASSWORD`, declared in `.dev.vars.e
 has to, so that *this* repo's own Git-connected auto-deploy keeps working — but that ID belongs to
 the database in the original deployer's account, not yours. When you use the button, Cloudflare
 creates a *new* D1 database in your account but doesn't rewrite that ID in your fork, so the first
-build fails with something like `binding DB of type d1 must have a valid database_id`. Fix it once:
+build fails with something like `D1 binding 'DB' references database '...' which was not found`.
+
+Fix it in one command, from your own machine, no manual `wrangler d1 list`/copy-paste needed:
 
 ```bash
-npx wrangler d1 list          # find the database it just created for you (e.g. "imghost-db")
+npm run deploy
 ```
 
-Copy that database's `uuid`, paste it into your fork's `wrangler.jsonc` in place of the existing
-`database_id`, commit, and push — the next auto-deploy will succeed. After that, open your Worker's
-URL and log in with the credentials you gave the button.
+`scripts/ensure-d1.mjs` runs first and is self-healing: it looks up (or creates, if missing) a D1
+database named `imghost-db` in your account and rewrites `wrangler.jsonc`'s `database_id`
+automatically, every time, before `wrangler deploy` ever runs. Commit and push the file it updates
+so future pushes stay in sync. (This step has to run *before* `wrangler deploy` starts, not inside
+its own `build.command` — Wrangler reads the D1 binding config before invoking that hook, so a
+file rewrite during the build step is too late for that same deploy. Confirmed by testing both
+orderings directly.) After that, open your Worker's URL and log in with the credentials you gave
+the button.
+
+**This self-heal only covers deploys you trigger yourself** (`npm run deploy`, or any deploy
+where you control the command). The dashboard's Git-connected auto-deploy-on-push always runs a
+fixed **Deploy command** (default `npx wrangler deploy`), which Cloudflare doesn't let a repo
+file customize — so if the D1 database is ever deleted again and you rely only on push-triggered
+deploys, that pipeline alone will hit the same stale-ID failure until either (a) you run
+`npm run deploy` locally once, which fixes and commits the correct id for future pushes to reuse,
+or (b) you change that one dashboard field yourself to
+`node scripts/ensure-d1.mjs && npx wrangler deploy`.
 
 ### Manual deploy
 
@@ -52,38 +68,36 @@ If you'd rather do it from the CLI:
 ```bash
 npm install
 npx wrangler login
-
-# Create the D1 database and R2 bucket
-npx wrangler d1 create imghost-db
 npx wrangler r2 bucket create imghost-images
 ```
 
-Take the `database_id` printed by `wrangler d1 create` and paste it into `wrangler.jsonc`:
+No manual D1 setup step — `npm run deploy` finds or creates the `imghost-db` database and wires
+its real `database_id` into `wrangler.jsonc` automatically before deploying (see the Known gotcha
+above for exactly why this has to happen as a separate step before `wrangler deploy`, not inside
+its `build.command`).
 
-```jsonc
-"d1_databases": [
-  {
-    "binding": "DB",
-    "database_name": "imghost-db",
-    "database_id": "PASTE_YOUR_DATABASE_ID_HERE"
-  }
-]
-```
-
-Set the admin credentials (each prompts interactively — nothing to type on the command line):
+For the **very first deploy**, the Worker doesn't exist yet, so `wrangler secret put` won't work
+(`wrangler` will tell you exactly this if you try) — supply the credentials via a file instead:
 
 ```bash
-npx wrangler secret put ADMIN_USERNAME
-npx wrangler secret put ADMIN_PASSWORD
+cat > /tmp/imghost-secrets.txt <<'EOF'
+ADMIN_USERNAME=your-username
+ADMIN_PASSWORD=your-password
+EOF
+node scripts/ensure-d1.mjs && npm run build && npx wrangler deploy --secrets-file /tmp/imghost-secrets.txt
+rm /tmp/imghost-secrets.txt
 ```
 
-Then deploy:
+After that first deploy, the Worker exists and both secrets are set, so every deploy after this
+one is just:
 
 ```bash
-npx wrangler deploy
+npm run deploy
 ```
 
-`wrangler deploy` will refuse to run (with a clear error) if either secret isn't set yet, rather
+To rotate a credential later, `wrangler secret put ADMIN_USERNAME`/`ADMIN_PASSWORD` now works fine
+(see [Account recovery](#account-recovery)) — it only fails against a Worker that doesn't exist
+yet. `wrangler deploy` refuses to run (with a clear error) if either secret isn't set, rather
 than shipping a Worker that's silently inaccessible.
 
 If your Cloudflare login has access to more than one account, either pass
