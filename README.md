@@ -28,8 +28,7 @@ upload, and a direct copyable link per image.
 
 The button walks you through connecting your Cloudflare account, provisions the Worker, D1
 database, and R2 bucket for you, **and prompts you right there in the dashboard for the two admin
-credential values** (`ADMIN_USERNAME`/`ADMIN_PASSWORD`, declared in `.dev.vars.example` and
-`wrangler.jsonc`'s `secrets.required`) — no separate post-deploy step needed when using the button.
+credential values** (`ADMIN_USERNAME`/`ADMIN_PASSWORD`, declared in `.dev.vars.example`) — no separate post-deploy step needed when using the button.
 
 **Known gotcha:** `wrangler.jsonc` in this repo has a `d1_databases[0].database_id` baked in — it
 has to, so that *this* repo's own Git-connected auto-deploy keeps working — but that ID belongs to
@@ -97,8 +96,10 @@ npm run deploy
 
 To rotate a credential later, `wrangler secret put ADMIN_USERNAME`/`ADMIN_PASSWORD` now works fine
 (see [Account recovery](#account-recovery)) — it only fails against a Worker that doesn't exist
-yet. `wrangler deploy` refuses to run (with a clear error) if either secret isn't set, rather
-than shipping a Worker that's silently inaccessible.
+yet. The secrets are **not** required for a deploy to succeed: if you create the Worker manually in
+the Cloudflare dashboard (no Deploy button) it builds fine without them, and the login page shows a
+"Not configured yet" screen explaining where to add `ADMIN_USERNAME`/`ADMIN_PASSWORD` (Worker →
+Settings → Variables and Secrets). They take effect immediately, no redeploy needed.
 
 If your Cloudflare login has access to more than one account, either pass
 `--account-id <id>` to the commands above, or export it once:

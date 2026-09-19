@@ -8,9 +8,6 @@
   "build": {
     "command": "npm run build"
   },
-  "secrets": {
-    "required": ["ADMIN_USERNAME", "ADMIN_PASSWORD"]
-  },
   "observability": {
     "enabled": true
   },

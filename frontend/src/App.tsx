@@ -66,12 +66,15 @@ export default function App() {
           <div className="brand-mark" />
           <h1>Not configured yet</h1>
           <p className="sub">
-            This imghost instance doesn't have admin credentials set. Whoever deployed it needs to run:
+            No admin username and password have been set for this instance yet. In the Cloudflare
+            dashboard, open Workers &amp; Pages → <b>imghost</b> → Settings → Variables and Secrets and add
+            two secrets:
           </p>
-          <pre className="config-snippet">
-            npx wrangler secret put ADMIN_USERNAME{"\n"}npx wrangler secret put ADMIN_PASSWORD
-          </pre>
-          <p className="sub">Reload this page once that's done.</p>
+          <pre className="config-snippet">ADMIN_USERNAME{"\n"}ADMIN_PASSWORD</pre>
+          <p className="sub">
+            Or from a terminal: <code>npx wrangler secret put ADMIN_USERNAME</code> and{" "}
+            <code>npx wrangler secret put ADMIN_PASSWORD</code>. Reload this page once that's done.
+          </p>
         </div>
       </div>
     );
