@@ -34,6 +34,14 @@ const SCHEMA_STATEMENTS = [
     attempted_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
   `CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts(ip, attempted_at)`,
+  `CREATE TABLE IF NOT EXISTS api_keys (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    key_hash TEXT NOT NULL UNIQUE,
+    key_prefix TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_used_at TEXT
+  )`,
 ];
 
 let initialized = false;

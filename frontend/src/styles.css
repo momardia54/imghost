@@ -283,9 +283,14 @@ label {
   border-top: 1px solid var(--border);
   padding-top: 12px;
   margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 .sidebar-footer button {
   width: 100%;
+  display: flex;
+  align-items: center;
   justify-content: flex-start;
   gap: 8px;
   color: var(--foreground-muted);
@@ -751,4 +756,110 @@ progress::-moz-progress-bar {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+
+/* API keys panel */
+.api-keys-modal {
+  max-width: 460px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.modal-header h2 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.modal-sub {
+  font-size: 13px;
+  color: var(--foreground-muted);
+  margin: 6px 0 20px;
+  line-height: 1.5;
+}
+
+.token-reveal {
+  background: var(--success-surface);
+  border: 1px solid var(--success);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-bottom: 18px;
+}
+.token-reveal-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--success);
+  margin-bottom: 8px;
+}
+.token-reveal-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.token-reveal-row code {
+  flex: 1;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  color: var(--foreground);
+  overflow-x: auto;
+  white-space: nowrap;
+  padding: 2px 0;
+}
+.token-reveal-row .copied-text {
+  color: var(--success);
+}
+
+.key-create-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.key-create-row input {
+  margin-bottom: 0;
+}
+
+.key-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.key-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.key-row-main {
+  min-width: 0;
+}
+.key-row-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.key-row-meta {
+  font-size: 11px;
+  color: var(--foreground-subtle);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty-state.small {
+  padding: 24px 0;
+  font-size: 13px;
 }

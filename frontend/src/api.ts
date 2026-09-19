@@ -119,6 +119,34 @@ export function deleteFile(id: number): Promise<{ ok: true }> {
   return request(`/api/files/${id}`, { method: "DELETE" });
 }
 
+export interface ApiKey {
+  id: number;
+  name: string;
+  key_prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+}
+
+export interface CreatedApiKey extends ApiKey {
+  token: string;
+}
+
+export function listApiKeys(): Promise<{ keys: ApiKey[] }> {
+  return request("/api/keys");
+}
+
+export function createApiKey(name: string): Promise<CreatedApiKey> {
+  return request("/api/keys", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function revokeApiKey(id: number): Promise<{ ok: true }> {
+  return request(`/api/keys/${id}`, { method: "DELETE" });
+}
+
 export function uploadFile(
   file: File,
   folderId: number | null,

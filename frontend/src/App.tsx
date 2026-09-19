@@ -7,7 +7,8 @@ import Breadcrumb from "./components/Breadcrumb";
 import Gallery from "./components/Gallery";
 import UploadTray from "./components/UploadTray";
 import ModalHost from "./components/Modal";
-import { LogOutIcon } from "./icons";
+import ApiKeysPanel from "./components/ApiKeysPanel";
+import { KeyIcon, LogOutIcon } from "./icons";
 
 type View = "loading" | "setup" | "login" | "app";
 
@@ -17,6 +18,7 @@ export default function App() {
   const [total, setTotal] = useState(0);
   const [selection, setSelection] = useState<Selection>({ type: "all" });
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showApiKeys, setShowApiKeys] = useState(false);
 
   const checkAuth = useCallback(() => {
     getMe()
@@ -89,6 +91,10 @@ export default function App() {
           onChanged={handleChanged}
         />
         <div className="sidebar-footer">
+          <button onClick={() => setShowApiKeys(true)}>
+            <KeyIcon />
+            API keys
+          </button>
           <button
             onClick={async () => {
               await logout();
@@ -114,6 +120,7 @@ export default function App() {
           onUnauthorized={handleUnauthorized}
         />
       </main>
+      {showApiKeys && <ApiKeysPanel onClose={() => setShowApiKeys(false)} />}
       <ModalHost />
     </div>
   );

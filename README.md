@@ -8,11 +8,16 @@ upload, and a direct copyable link per image.
 
 - **Single-account**: the first visit prompts you to create the one admin account; every visit
   after that is a login.
-- **Folders**: create arbitrarily nested folders, browse them, delete a folder and everything
-  inside it in one action.
-- **Upload**: drag & drop or pick a file. JPG, PNG, GIF, WebP, AVIF — up to 10MB.
+- **Folders**: nested folders with expand/collapse, inline rename, and drag-and-drop to move an
+  image into a folder.
+- **Upload**: drag & drop or pick multiple files at once, uploaded in parallel with a per-file
+  progress bar. JPG, PNG, GIF, WebP, AVIF — up to 10MB each.
+- **Gallery**: a flat, paginated "All images" view across every folder, or browse one folder at a
+  time.
 - **Direct links**: every uploaded image gets a stable, public `/i/<key>` URL you can copy and
   share — no auth required to view it.
+- **Remote/API upload**: generate an API key in the UI and upload images from a script or an AI
+  coding agent without a browser session — see [Remote / API upload](#remote--api-upload) below.
 - **Runs on the free tier**: one Worker, one D1 database, one R2 bucket. No servers to manage.
 
 ## Deploy
@@ -76,13 +81,42 @@ Cloudflare resources are touched.
 
 ## How it's built
 
-- **No framework** — a single Worker with plain `fetch`-based routing (`src/index.ts`).
-- **D1** stores the account, sessions, the folder tree, and file metadata. Schema is applied
-  lazily on first request (`src/db.ts`) — no separate migration step to run.
+- **Backend** is a single Worker with plain `fetch`-based routing (`src/index.ts`) — no framework.
+- **D1** stores the account, sessions, API keys, the folder tree, and file metadata. Schema is
+  applied lazily on first request (`src/db.ts`) — no separate migration step to run.
 - **R2** stores the actual image bytes, addressed by a random UUID key that's decoupled from the
   folder path, so moving/renaming folders never breaks an existing shared link.
-- **Frontend** is plain HTML/CSS/vanilla JS served straight from the Worker via the `assets`
-  binding (`public/`) — no build step.
+- **Frontend** is React + TypeScript (`frontend/`), built with Vite and served as a single-page
+  app from the Worker via the `assets` binding. `wrangler.jsonc`'s `build.command` runs
+  `npm run build` automatically before every `wrangler deploy`/`dev`, so this is self-contained —
+  no separate build step to remember, whether deploying via the CLI, the dashboard's Git
+  integration, or the Deploy button.
+
+## Remote / API upload
+
+Besides the browser UI, images can be uploaded programmatically — handy for scripts, CI, or an AI
+coding agent that should be able to drop in an image and get a link back.
+
+1. Log in, open **API keys** in the sidebar, and create a named key (e.g. `my-ai-agent`). The full
+   token is shown **once** — copy it immediately, it can't be retrieved again (only its prefix is
+   kept, for identifying it in the list later).
+2. Upload with it:
+   ```bash
+   curl -X POST https://your-worker.workers.dev/api/upload \
+     -H "Authorization: Bearer imghost_sk_..." \
+     -F "file=@photo.png" \
+     -F "folder_id=optional"
+   ```
+   The response is the same JSON the browser upload gets back, including `url` — the direct link.
+
+API keys are intentionally **upload-only**: a key can't list, delete, or move files, browse
+folders, or mint/revoke other keys — only `POST /api/upload` accepts a key, everything else still
+requires the browser session cookie. If a key leaks, the blast radius is "someone can add images,"
+not "someone can read or wipe the library." Revoke a key any time from the same panel.
+
+Note: this endpoint has no CORS headers, since it's meant for server-side/CLI callers (curl, a
+Node/Python script, an agent's tool runner) rather than browser JavaScript running on another
+origin — CORS wouldn't apply either way for that kind of caller.
 
 ## Security notes
 
@@ -108,6 +142,9 @@ This was built with a few deliberate hardening choices worth knowing about:
   `Referrer-Policy: no-referrer`.
 - **No SQL injection surface**: every D1 query uses parameterized `?` bindings — user input is
   never concatenated into SQL.
+- **API keys**: stored as a SHA-256 hash (the plaintext token is shown once, at creation, and
+  never persisted or retrievable again) and scoped to upload-only, per the [Remote / API
+  upload](#remote--api-upload) section above.
 
 ## Limits
 

@@ -1,9 +1,10 @@
 import { ensureSchema } from "./db";
-import { getSessionFromRequest } from "./auth";
+import { getApiKeyFromRequest, getSessionFromRequest } from "./auth";
 import { handleSetup, handleLogin, handleLogout, handleMe } from "./routes/auth";
 import { handleTree, handleCreateFolder, handleDeleteFolder, handleRenameFolder } from "./routes/folders";
 import { handleListFiles, handleUpload, handleDeleteFile, handleMoveFile } from "./routes/files";
 import { handleServeImage } from "./routes/serve";
+import { handleListApiKeys, handleCreateApiKey, handleRevokeApiKey } from "./routes/apiKeys";
 import { withSecurityHeaders } from "./security";
 
 export interface Env {
@@ -46,6 +47,15 @@ async function handle(req: Request, env: Env): Promise<Response> {
       return handleMe(req, env.DB);
     }
 
+    // Upload accepts either a browser session OR an API key (Authorization: Bearer <token>) —
+    // scoped to this one route so a leaked key can only upload, not browse/delete/manage keys.
+    if (pathname === "/api/upload" && req.method === "POST") {
+      const hasSession = await getSessionFromRequest(req, env.DB);
+      const apiKey = hasSession ? null : await getApiKeyFromRequest(req, env.DB);
+      if (!hasSession && !apiKey) return json({ error: "Unauthorized" }, 401);
+      return handleUpload(req, env.DB, env.IMAGES, url.origin);
+    }
+
     // Everything else under /api requires a valid session.
     if (pathname.startsWith("/api/")) {
       const authed = await getSessionFromRequest(req, env.DB);
@@ -67,15 +77,22 @@ async function handle(req: Request, env: Env): Promise<Response> {
       if (pathname === "/api/files" && req.method === "GET") {
         return handleListFiles(req, env.DB);
       }
-      if (pathname === "/api/upload" && req.method === "POST") {
-        return handleUpload(req, env.DB, env.IMAGES, url.origin);
-      }
       const fileMatch = pathname.match(/^\/api\/files\/(\d+)$/);
       if (fileMatch && req.method === "DELETE") {
         return handleDeleteFile(Number(fileMatch[1]), env.DB, env.IMAGES);
       }
       if (fileMatch && req.method === "PATCH") {
         return handleMoveFile(Number(fileMatch[1]), req, env.DB);
+      }
+      if (pathname === "/api/keys" && req.method === "GET") {
+        return handleListApiKeys(env.DB);
+      }
+      if (pathname === "/api/keys" && req.method === "POST") {
+        return handleCreateApiKey(req, env.DB);
+      }
+      const keyMatch = pathname.match(/^\/api\/keys\/(\d+)$/);
+      if (keyMatch && req.method === "DELETE") {
+        return handleRevokeApiKey(Number(keyMatch[1]), env.DB);
       }
 
       return json({ error: "Not found" }, 404);
