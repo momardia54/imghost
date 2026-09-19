@@ -1,4 +1,5 @@
 import { LogoMark } from "../icons";
+import ThemeToggle from "./ThemeToggle";
 import { FormEvent, useState } from "react";
 import { UnauthorizedError, login } from "../api";
 
@@ -25,6 +26,7 @@ export default function LoginForm({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="center-screen">
+      <ThemeToggle className="theme-toggle-floating" />
       <div className="auth-card">
         <LogoMark className="brand-mark" />
         <h1>imghost</h1>

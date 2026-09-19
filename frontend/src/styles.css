@@ -26,6 +26,32 @@
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --shadow-md: 0 4px 24px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.5);
+  --backdrop: rgba(2, 2, 3, 0.6);
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg-deep: #f5f6f8;
+  --bg-elevated: #ffffff;
+  --bg-elevated-2: #eceef2;
+  --surface: rgba(0, 0, 0, 0.04);
+  --surface-hover: rgba(0, 0, 0, 0.07);
+  --border: rgba(0, 0, 0, 0.1);
+  --border-hover: rgba(0, 0, 0, 0.2);
+  --foreground: #16181d;
+  --foreground-muted: #545a66;
+  --foreground-subtle: #6b7180;
+  --accent-hover: #4f5bc4;
+  --accent-glow: rgba(94, 106, 210, 0.25);
+  --accent-surface: rgba(94, 106, 210, 0.1);
+  --success: #14995a;
+  --success-surface: rgba(20, 153, 90, 0.12);
+  --danger: #d9363b;
+  --danger-surface: rgba(217, 54, 59, 0.1);
+  --shadow-md: 0 4px 24px rgba(20, 24, 40, 0.1);
+  --shadow-lg: 0 16px 48px rgba(20, 24, 40, 0.16);
+  --backdrop: rgba(20, 24, 40, 0.35);
+  color-scheme: light;
 }
 
 * {
@@ -674,10 +700,10 @@ progress::-moz-progress-bar {
 }
 .image-card .thumb-overlay button {
   background: rgba(12, 13, 17, 0.85);
+  color: #ededef;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--border);
-  color: var(--foreground);
   width: 34px;
   height: 34px;
   padding: 0;
@@ -773,7 +799,7 @@ progress::-moz-progress-bar {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(2, 2, 3, 0.6);
+  background: var(--backdrop);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   display: flex;
@@ -927,4 +953,11 @@ progress::-moz-progress-bar {
 .empty-state.small {
   padding: 24px 0;
   font-size: 13px;
+}
+
+/* Theme toggle */
+.theme-toggle-floating {
+  position: absolute;
+  top: 16px;
+  right: 16px;
 }

@@ -7,6 +7,7 @@ import Gallery from "./components/Gallery";
 import UploadTray from "./components/UploadTray";
 import ModalHost from "./components/Modal";
 import ApiKeysPanel from "./components/ApiKeysPanel";
+import ThemeToggle from "./components/ThemeToggle";
 import { KeyIcon, LogOutIcon, LogoMark } from "./icons";
 
 type View = "loading" | "not-configured" | "login" | "app";
@@ -106,6 +107,7 @@ export default function App() {
           onChanged={handleChanged}
         />
         <div className="sidebar-footer">
+          <ThemeToggle label />
           <button onClick={() => setShowApiKeys(true)}>
             <KeyIcon />
             API keys
