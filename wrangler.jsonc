@@ -16,7 +16,7 @@
     {
       "binding": "DB",
       "database_name": "imghost-db",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID"
+      "database_id": "e61bed25-1d9c-4e9e-b04e-ad3f182216a6"
     }
   ],
   "r2_buckets": [
