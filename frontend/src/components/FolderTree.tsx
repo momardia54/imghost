@@ -127,7 +127,7 @@ export default function FolderTree({ folders, total, selection, onSelect, onChan
         <div
           className={
             "folder-row" +
-            ` depth-${Math.min(depth, 8)}` +
+            ` depth-${Math.min(depth, 6)}` +
             (isActive ? " active" : "") +
             (dragOverId === folder.id ? " drag-over" : "")
           }
@@ -164,7 +164,9 @@ export default function FolderTree({ folders, total, selection, onSelect, onChan
             />
           ) : (
             <>
-              <span className="folder-label">{folder.name}</span>
+              <span className="folder-label" title={folder.name}>
+                {folder.name}
+              </span>
               <span className="folder-count">{folder.count}</span>
               <span className="row-actions">
                 <button

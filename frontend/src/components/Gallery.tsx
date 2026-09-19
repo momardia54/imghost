@@ -72,10 +72,11 @@ export default function Gallery({
       ? folders.filter((f) => f.parent_id === selection.id).sort((a, b) => a.name.localeCompare(b.name))
       : [];
 
-  function folderPath(f: FolderNode): string {
+  // Ancestor names of a folder, root first (excluding the folder itself).
+  function parentPath(f: FolderNode): string {
     const names: string[] = [];
-    let cur: FolderNode | undefined = f;
-    while (cur && names.length < 16) {
+    let cur = f.parent_id === null ? undefined : folders.find((x) => x.id === f.parent_id);
+    while (cur && names.length < 32) {
       names.unshift(cur.name);
       cur = cur.parent_id === null ? undefined : folders.find((x) => x.id === cur!.parent_id);
     }
@@ -103,16 +104,25 @@ export default function Gallery({
   }
 
   const subfolderGrid = subfolders.length > 0 && (
-    <div className="subfolder-grid">
-      {subfolders.map((f) => (
-        <button className="subfolder-card" key={f.id} onClick={() => onSelect({ type: "folder", id: f.id })}>
-          <FolderIcon />
-          <span className="name" title={folderPath(f)}>
-            {query ? folderPath(f) : f.name}
-          </span>
-          <span className="folder-count">{f.count}</span>
-        </button>
-      ))}
+    <div className={"subfolder-grid" + (query ? " search" : "")}>
+      {subfolders.map((f) => {
+        const path = query ? parentPath(f) : "";
+        return (
+          <button
+            className="subfolder-card"
+            key={f.id}
+            title={path ? `${path} / ${f.name}` : f.name}
+            onClick={() => onSelect({ type: "folder", id: f.id })}
+          >
+            <FolderIcon />
+            <span className="folder-text">
+              <span className="name">{f.name}</span>
+              {path && <span className="path">{path}</span>}
+            </span>
+            <span className="folder-count">{f.count}</span>
+          </button>
+        );
+      })}
     </div>
   );
 

@@ -414,6 +414,9 @@ label {
 .folder-row:hover .row-actions {
   display: flex;
 }
+.folder-row:hover .folder-count {
+  display: none;
+}
 
 .folder-row .rename-input {
   flex: 1;
@@ -422,15 +425,14 @@ label {
   border-radius: 6px;
 }
 
+/* Indent stops growing at depth 6 so deeply nested labels always keep room; full names show on hover. */
 .folder-row.depth-0 { padding-left: 8px; }
-.folder-row.depth-1 { padding-left: 24px; }
-.folder-row.depth-2 { padding-left: 40px; }
-.folder-row.depth-3 { padding-left: 56px; }
-.folder-row.depth-4 { padding-left: 72px; }
-.folder-row.depth-5 { padding-left: 88px; }
-.folder-row.depth-6 { padding-left: 104px; }
-.folder-row.depth-7 { padding-left: 120px; }
-.folder-row.depth-8 { padding-left: 136px; }
+.folder-row.depth-1 { padding-left: 20px; }
+.folder-row.depth-2 { padding-left: 32px; }
+.folder-row.depth-3 { padding-left: 44px; }
+.folder-row.depth-4 { padding-left: 56px; }
+.folder-row.depth-5 { padding-left: 68px; }
+.folder-row.depth-6 { padding-left: 80px; }
 
 /* Main content */
 .main {
@@ -638,12 +640,32 @@ progress::-moz-progress-bar {
   flex-shrink: 0;
   color: var(--accent);
 }
-.subfolder-card .name {
+.subfolder-card .folder-text {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.subfolder-card .name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.subfolder-card .path {
+  color: var(--foreground-subtle);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.subfolder-card .folder-count {
+  color: var(--foreground-subtle);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.subfolder-grid.search {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
 }
 
 .image-card {
