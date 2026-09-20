@@ -1,3 +1,5 @@
+// Static assets bypass the Worker, so frontend/public/_headers carries a copy of these headers.
+// Keep the two in sync.
 const CSP = [
   "default-src 'self'",
   "script-src 'self'",

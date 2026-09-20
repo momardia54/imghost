@@ -196,7 +196,8 @@ export async function handleUpload(
       )
       .bind(folderId, key, safeName, sniffedType, bytes.byteLength)
       .first<{ id: number; created_at: string }>();
-  } catch {
+  } catch (err) {
+    console.error("upload: D1 insert failed", err);
     // The R2 object was already written — clean it up rather than leaving an orphan with no
     // DB row pointing to it (it would otherwise be permanently invisible to the app).
     await bucket.delete(key).catch(() => {});
