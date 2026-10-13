@@ -10,6 +10,7 @@
 <p align="center">
   <img alt="version" src="https://img.shields.io/badge/version-1.0.0-6e77f0">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-lightgrey">
+  <a href="https://github.com/sponsors/momardia54"><img alt="Sponsor" src="https://img.shields.io/badge/sponsor-%E2%9D%A4-db61a2?logo=githubsponsors&logoColor=white"></a>
   <a href="CHANGELOG.md">Changelog</a> · <a href="ROADMAP.md">Roadmap</a> · <a href="SECURITY.md">Security</a>
 </p>
 
@@ -156,6 +157,9 @@ headers on the upload endpoint.
 
 ## HTTP API (session cookie)
 
+Every installation serves an OpenAPI 3.1 description of this API at `/openapi.json`
+(source: `frontend/public/openapi.json`).
+
 | Method | Path | Description |
 | --- | --- | --- |
 | POST | `/api/login` | Log in (`username`, `password`) |
@@ -240,6 +244,11 @@ test/             Worker API tests (Vitest + @cloudflare/vitest-plugin)
 scripts/          ensure-d1.mjs
 assets/           logo and README screenshots
 ```
+
+## Sponsor
+
+imghost is free and MIT-licensed. If it saves you a hosting bill or an afternoon, you can
+[sponsor its development on GitHub](https://github.com/sponsors/momardia54).
 
 ## License
 

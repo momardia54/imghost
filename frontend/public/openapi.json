@@ -1,0 +1,668 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "imghost API",
+    "version": "1.0.0",
+    "summary": "Self-hosted image host on Cloudflare Workers, D1 and R2.",
+    "description": "The HTTP API of an imghost installation. Every `/api` endpoint needs the admin session cookie, except `POST /api/login`, `GET /api/me`, and `POST /api/upload`, which also accepts an API key. Public images are served at `/i/{key}` without authentication.\n\nRequest bodies are JSON unless stated otherwise. Errors are `{ \"error\": \"<message>\" }`. Times are UTC in D1's format, `YYYY-MM-DD HH:MM:SS`, without a zone marker.",
+    "license": { "name": "MIT", "identifier": "MIT" }
+  },
+  "externalDocs": {
+    "description": "imghost documentation",
+    "url": "https://github.com/momardia54/imghost"
+  },
+  "servers": [{ "url": "/", "description": "The installation serving this file" }],
+  "security": [{ "session": [] }],
+  "tags": [
+    { "name": "Session", "description": "Sign-in for the single admin account." },
+    { "name": "Folders", "description": "Nested folders. Counts and listings include sub-folders." },
+    { "name": "Images", "description": "Listing, uploading, moving and deleting images." },
+    { "name": "API keys", "description": "Upload-only keys for scripts and other tools. Managed with a session only." },
+    { "name": "Public", "description": "Image links. No authentication." }
+  ],
+  "paths": {
+    "/api/login": {
+      "post": {
+        "tags": ["Session"],
+        "summary": "Sign in",
+        "operationId": "login",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "password"],
+                "properties": {
+                  "username": { "type": "string" },
+                  "password": { "type": "string", "format": "password" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signed in. The session cookie is valid for 30 days.",
+            "headers": {
+              "Set-Cookie": {
+                "description": "`imghost_session=<token>; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`",
+                "schema": { "type": "string" }
+              }
+            },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Ok" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": {
+            "description": "Wrong username or password.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "429": {
+            "description": "8 failed attempts from this IP address in the last 15 minutes. Refused even with the right password until the window passes.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "503": {
+            "description": "`ADMIN_USERNAME` or `ADMIN_PASSWORD` is not set on this installation.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/logout": {
+      "post": {
+        "tags": ["Session"],
+        "summary": "Sign out",
+        "description": "Deletes the session and clears the cookie. Succeeds without a session too.",
+        "operationId": "logout",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Signed out.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Ok" } } }
+          }
+        }
+      }
+    },
+    "/api/me": {
+      "get": {
+        "tags": ["Session"],
+        "summary": "Session state",
+        "operationId": "getMe",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Whether the request carries a valid session, and whether the admin credentials are set.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["authenticated", "configured"],
+                  "properties": {
+                    "authenticated": { "type": "boolean" },
+                    "configured": { "type": "boolean", "description": "False until both admin secrets are set." }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tree": {
+      "get": {
+        "tags": ["Folders"],
+        "summary": "Folder tree and library totals",
+        "operationId": "getTree",
+        "responses": {
+          "200": {
+            "description": "Every folder with its recursive image count, and the library's totals.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["folders", "total", "bytes"],
+                  "properties": {
+                    "folders": { "type": "array", "items": { "$ref": "#/components/schemas/FolderWithCount" } },
+                    "total": { "type": "integer", "description": "Images in the library." },
+                    "bytes": { "type": "integer", "description": "Total size of the library's originals." }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/folders": {
+      "post": {
+        "tags": ["Folders"],
+        "summary": "Create a folder",
+        "operationId": "createFolder",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "$ref": "#/components/schemas/FolderName" },
+                  "parent_id": { "$ref": "#/components/schemas/FolderRef" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Folder" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/folders/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "patch": {
+        "tags": ["Folders"],
+        "summary": "Rename a folder",
+        "operationId": "renameFolder",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": { "name": { "$ref": "#/components/schemas/FolderName" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Renamed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["ok", "id", "name"],
+                  "properties": {
+                    "ok": { "const": true },
+                    "id": { "type": "integer" },
+                    "name": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Folders"],
+        "summary": "Delete a folder and everything in it",
+        "description": "Deletes the folder, all its sub-folders, their images and the images' variants. Public links to those images stop working.",
+        "operationId": "deleteFolder",
+        "responses": {
+          "200": {
+            "description": "Deleted.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Ok" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/files": {
+      "get": {
+        "tags": ["Images"],
+        "summary": "List images",
+        "description": "What is listed depends on the parameters, in this order of precedence: `q` (name search across all folders), `scope=all` (every image), `folder_id` (the folder and all its sub-folders), none of them (images in no folder).",
+        "operationId": "listFiles",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "File names containing this text, in every folder. `%` and `_` match literally. Longer values are cut to 100 characters.",
+            "schema": { "type": "string" }
+          },
+          { "name": "scope", "in": "query", "description": "`all` lists every image.", "schema": { "type": "string", "enum": ["all"] } },
+          { "name": "folder_id", "in": "query", "description": "List this folder, including its sub-folders.", "schema": { "type": "integer" } },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Unknown values sort by `newest`.",
+            "schema": { "type": "string", "enum": ["newest", "oldest", "name", "size"], "default": "newest" }
+          },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 24 } },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Images to skip. Takes precedence over `page`. Prefer it when the list can change while you read it.",
+            "schema": { "type": "integer", "minimum": 0 }
+          },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of images.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["files", "total", "page", "pageSize"],
+                  "properties": {
+                    "files": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Image" },
+                      "description": "In this list, `url` is relative (`/i/<key>`)."
+                    },
+                    "total": { "type": "integer", "description": "Every match, not only this page." },
+                    "page": { "type": "integer" },
+                    "pageSize": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/upload": {
+      "post": {
+        "tags": ["Images"],
+        "summary": "Upload an image",
+        "description": "Accepts a session or an API key. The format is identified from the file's content; the file name and the declared type are ignored. SVG is refused.",
+        "operationId": "uploadFile",
+        "security": [{ "session": [] }, { "apiKey": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "contentMediaType": "application/octet-stream",
+                    "description": "JPEG, PNG, GIF, WebP or AVIF, up to 10 MB."
+                  },
+                  "folder_id": { "type": "integer", "description": "Without it, the image goes to no folder (Unsorted)." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Stored. `url` is the absolute public link.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Image" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/files/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "patch": {
+        "tags": ["Images"],
+        "summary": "Move an image",
+        "operationId": "moveFile",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["folder_id"],
+                "properties": { "folder_id": { "$ref": "#/components/schemas/FolderRef" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Moved. The public link does not change.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MoveResult" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Images"],
+        "summary": "Delete an image",
+        "description": "Deletes the image, its variants and its record. Its public link stops working.",
+        "operationId": "deleteFile",
+        "responses": {
+          "200": {
+            "description": "Deleted.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Ok" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/files/move": {
+      "post": {
+        "tags": ["Images"],
+        "summary": "Move several images",
+        "operationId": "moveFiles",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["ids", "folder_id"],
+                "properties": {
+                  "ids": { "$ref": "#/components/schemas/Ids" },
+                  "folder_id": { "$ref": "#/components/schemas/FolderRef" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Moved. Ids that do not exist are skipped.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/MoveResult" },
+                    { "type": "object", "required": ["moved"], "properties": { "moved": { "type": "integer" } } }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/files/delete": {
+      "post": {
+        "tags": ["Images"],
+        "summary": "Delete several images",
+        "operationId": "deleteFiles",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["ids"],
+                "properties": { "ids": { "$ref": "#/components/schemas/Ids" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Deleted, with their variants. `deleted` counts the images that existed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["ok", "deleted"],
+                  "properties": { "ok": { "const": true }, "deleted": { "type": "integer" } }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/keys": {
+      "get": {
+        "tags": ["API keys"],
+        "summary": "List API keys",
+        "operationId": "listApiKeys",
+        "responses": {
+          "200": {
+            "description": "Every key, newest first. Tokens are never returned after creation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["keys"],
+                  "properties": { "keys": { "type": "array", "items": { "$ref": "#/components/schemas/ApiKey" } } }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["API keys"],
+        "summary": "Create an API key",
+        "operationId": "createApiKey",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 100 } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created. `token` is returned this once only; only its SHA-256 hash is stored.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["id", "name", "token", "key_prefix", "created_at"],
+                  "properties": {
+                    "id": { "type": "integer" },
+                    "name": { "type": "string" },
+                    "token": { "type": "string", "pattern": "^imghost_sk_[0-9a-f]{48}$" },
+                    "key_prefix": { "type": "string", "description": "The token's first 12 characters." },
+                    "created_at": { "$ref": "#/components/schemas/Timestamp" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/keys/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "delete": {
+        "tags": ["API keys"],
+        "summary": "Revoke an API key",
+        "description": "Takes effect immediately.",
+        "operationId": "revokeApiKey",
+        "responses": {
+          "200": {
+            "description": "Revoked.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Ok" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/i/{key}": {
+      "get": {
+        "tags": ["Public"],
+        "summary": "Public image",
+        "operationId": "getImage",
+        "security": [],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "The image's `r2_key`.",
+            "schema": { "type": "string" },
+            "example": "0b6f2c1e-8a3d-4e57-9b1c-4f0e2d7a9c55.jpg"
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "A WebP scaled down to this width (thumb 200, small 400, medium 800, large 1600 px), generated on the first request and stored. GIFs, unknown values and transformation failures return the original.",
+            "schema": { "type": "string", "enum": ["thumb", "small", "medium", "large"] }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The image.",
+            "headers": {
+              "Cache-Control": { "schema": { "type": "string", "const": "public, max-age=31536000, immutable" } }
+            },
+            "content": {
+              "image/jpeg": { "schema": { "type": "string", "contentMediaType": "image/jpeg" } },
+              "image/png": { "schema": { "type": "string", "contentMediaType": "image/png" } },
+              "image/gif": { "schema": { "type": "string", "contentMediaType": "image/gif" } },
+              "image/webp": { "schema": { "type": "string", "contentMediaType": "image/webp" } },
+              "image/avif": { "schema": { "type": "string", "contentMediaType": "image/avif" } }
+            }
+          },
+          "404": {
+            "description": "No image with this key.",
+            "content": { "text/plain": { "schema": { "type": "string" } } }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "imghost_session",
+        "description": "Set by `POST /api/login`."
+      },
+      "apiKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "An API key (`imghost_sk_…`). Accepted by `POST /api/upload` only."
+      }
+    },
+    "parameters": {
+      "Id": { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Missing or invalid input.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      },
+      "Unauthorized": {
+        "description": "No valid session (or, for uploads, no valid API key).",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      },
+      "NotFound": {
+        "description": "The resource, or a folder it refers to, does not exist.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": ["error"],
+        "properties": { "error": { "type": "string" } }
+      },
+      "Ok": {
+        "type": "object",
+        "required": ["ok"],
+        "properties": { "ok": { "const": true } }
+      },
+      "Timestamp": {
+        "type": "string",
+        "description": "UTC, `YYYY-MM-DD HH:MM:SS`.",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$",
+        "examples": ["2026-10-13 14:02:11"]
+      },
+      "FolderName": { "type": "string", "minLength": 1, "description": "Trimmed, and cut to 100 characters." },
+      "FolderRef": {
+        "type": ["integer", "null"],
+        "description": "A folder id, or `null` for no folder (top level for folders, Unsorted for images)."
+      },
+      "Folder": {
+        "type": "object",
+        "required": ["id", "name", "parent_id"],
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "parent_id": { "type": ["integer", "null"] }
+        }
+      },
+      "FolderWithCount": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Folder" },
+          {
+            "type": "object",
+            "required": ["count"],
+            "properties": { "count": { "type": "integer", "description": "Images in the folder and all its sub-folders." } }
+          }
+        ]
+      },
+      "Image": {
+        "type": "object",
+        "required": ["id", "folder_id", "r2_key", "original_name", "content_type", "size", "created_at", "url"],
+        "properties": {
+          "id": { "type": "integer" },
+          "folder_id": { "type": ["integer", "null"] },
+          "r2_key": { "type": "string", "description": "Random storage key; part of the public link.", "examples": ["0b6f2c1e-8a3d-4e57-9b1c-4f0e2d7a9c55.jpg"] },
+          "original_name": { "type": "string", "description": "The uploaded file name, up to 255 characters." },
+          "content_type": { "type": "string", "enum": ["image/jpeg", "image/png", "image/gif", "image/webp", "image/avif"] },
+          "size": { "type": "integer", "description": "Bytes." },
+          "created_at": { "$ref": "#/components/schemas/Timestamp" },
+          "url": { "type": "string", "description": "The public link: relative in listings, absolute in the upload response." }
+        }
+      },
+      "MoveResult": {
+        "type": "object",
+        "required": ["ok", "folder_id"],
+        "properties": { "ok": { "const": true }, "folder_id": { "$ref": "#/components/schemas/FolderRef" } }
+      },
+      "Ids": {
+        "type": "array",
+        "items": { "type": "integer", "minimum": 1 },
+        "minItems": 1,
+        "maxItems": 500,
+        "description": "Duplicates are ignored."
+      },
+      "ApiKey": {
+        "type": "object",
+        "required": ["id", "name", "key_prefix", "created_at", "last_used_at"],
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "key_prefix": { "type": "string" },
+          "created_at": { "$ref": "#/components/schemas/Timestamp" },
+          "last_used_at": { "oneOf": [{ "$ref": "#/components/schemas/Timestamp" }, { "type": "null" }] }
+        }
+      }
+    }
+  }
+}

@@ -27,6 +27,8 @@ First stable release. The UI was rebuilt from scratch on top of the existing Wor
 - Test suite for the Worker (Vitest in the Workers runtime): auth, rate limiting, upload sniffing,
   listing, sorting, search, bulk actions, GIF passthrough, variant cleanup, API key scope
 - GitHub Actions CI: typecheck, build and tests on every push and pull request
+- OpenAPI 3.1 description of the HTTP API, served by every installation at `/openapi.json`; a test
+  calls every documented operation to keep it in step with the router
 - Thumbnail size slider; view, sort and size are remembered per browser
 - Infinite scroll in place of numbered pages
 - Storage meter against the R2 free tier (`GET /api/tree` now returns `bytes`)
