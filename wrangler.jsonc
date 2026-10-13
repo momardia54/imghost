@@ -1,0 +1,35 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "imghost",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "build": {
+    "command": "npm run build"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "./frontend-dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "imghost-db",
+      "database_id": "7d7db1e9-2739-48af-aa0c-0cb0951430b3"
+    }
+  ],
+  "images": {
+    "binding": "TRANSFORM"
+  },
+  "r2_buckets": [
+    {
+      "binding": "IMAGES",
+      "bucket_name": "imghost-images"
+    }
+  ]
+}
